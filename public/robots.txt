@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://bg-remover.vercel.app/sitemap.xml

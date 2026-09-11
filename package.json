@@ -1,0 +1,20 @@
+{
+  "name": "bg-remover",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Free, private, in-browser background remover. No signup, no ads, no uploads.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "@imgly/background-removal": "1.7.0",
+    "onnxruntime-web": "1.21.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}
