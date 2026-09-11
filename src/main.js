@@ -82,6 +82,7 @@ const el = {
   folderInput: qs("#folder-input"),
   videoInput: qs("#video-input"),
   editorHome: qs("#btn-editor-home"),
+  modelStatus: qs("#model-status"),
 };
 
 const bulkFlow = initBulk({ showToast, goHome: () => showView("hero") });
@@ -648,6 +649,34 @@ function init() {
   if (!("gpu" in navigator)) state.device = "cpu";
 
   setStatus("Drop an image to remove its background — everything runs in your browser.");
+
+  // Once the neural model has loaded it stays resident for the whole tab:
+  // the underlying engine memoises sessions and every code path (image
+  // editor, video frames, bulk jobs) now shares one canonical config, so it
+  // is downloaded and initialized exactly once — never again.
+  engine.onModelStatus((status) => {
+    if (!el.modelStatus) return;
+    if (status === "ready") {
+      el.modelStatus.textContent = "AI model ready";
+      el.modelStatus.classList.add("ready");
+      el.modelStatus.hidden = false;
+    } else if (status === "loading") {
+      el.modelStatus.textContent = "Syncing model…";
+      el.modelStatus.classList.remove("ready");
+      el.modelStatus.hidden = false;
+    } else {
+      el.modelStatus.hidden = true;
+    }
+  });
+
+  // Warm the model in the background right away so the first job never waits
+  // on a download and every later job is instant.
+  const warmUp = () => engine.preload({ model: state.model, device: state.device });
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(warmUp, { timeout: 2500 });
+  } else {
+    setTimeout(warmUp, 400);
+  }
 }
 
 init();

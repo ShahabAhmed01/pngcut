@@ -38,6 +38,7 @@ Live at **https://pngcut.vercel.app/**
 - Keyboard shortcuts: `B` erase, `R` restore, `C` compare, `G` background, `Ctrl+Z` undo, `Ctrl+Shift+Z`/`Ctrl+Y` redo, `[`/`]` brush size, `Space` + drag to pan
 - **SEO** out of the box: Open Graph, Twitter cards, JSON-LD (`WebApplication` + `FAQPage`), sitemap, robots.txt
 - Static pages: About, Terms, Privacy, Contact, Support, API
+- **Model stays resident** — the AI model is preloaded in the background on page load and kept in memory for the whole tab; every image, video frame and bulk job reuses the same inference session (never re-downloaded, never re-initialized)
 
 ## How it works
 

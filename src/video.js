@@ -202,7 +202,7 @@ export function initVideo({ showToast, goHome }) {
         await seekTo(video, i / fps);
         wctx.drawImage(video, 0, 0, mw, mh);
         const blob = await canvasToJpeg(work, 0.92);
-        const maskBlob = await engine.segmentForeground(blob, { model, device: "gpu" });
+        const maskBlob = await engine.segmentForeground(blob, { model });
         const bmp = await createImageBitmap(maskBlob);
         const md = document.createElement("canvas");
         md.width = mw;

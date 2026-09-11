@@ -119,7 +119,7 @@ export function initBulk({ showToast, goHome }) {
       try {
         const img = await loadImage(item.file);
         const source = toCanvasMax(img, 4000);
-        const maskBlob = await engine.segmentForeground(item.file, { model: "medium", device: "gpu" });
+        const maskBlob = await engine.segmentForeground(item.file, { model: "medium" });
         const maskImg = await loadImage(maskBlob);
         const fg = document.createElement("canvas");
         fg.width = source.width;

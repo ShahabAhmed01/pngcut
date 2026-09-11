@@ -36,6 +36,7 @@ html, body {
 }
 
 .hidden { display: none !important; }
+[hidden] { display: none !important; }
 
 /* ---------- Top bar ---------- */
 .topbar {
@@ -324,6 +325,25 @@ input[type="color"]::-webkit-color-swatch { border-radius: 7px; border: 1px soli
   border-radius: var(--radius-sm); transition: all .15s ease;
 }
 .nav-link:hover { color: var(--text); background: var(--bg-panel); }
+
+/* ---------- Model status chip ---------- */
+.model-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--text-dim); border: 1px solid var(--border);
+  padding: 6px 12px; border-radius: 20px; background: var(--bg-panel);
+  white-space: nowrap;
+}
+.model-chip::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent-2); flex: none;
+  animation: chip-pulse 1.2s ease-in-out infinite;
+}
+.model-chip.ready { color: #3ddc97; border-color: rgba(61, 220, 151, 0.35); }
+.model-chip.ready::before { background: #3ddc97; animation: none; }
+@keyframes chip-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
 
 /* ---------- Picker buttons ---------- */
 .pick-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; margin: 20px 0 4px; }
