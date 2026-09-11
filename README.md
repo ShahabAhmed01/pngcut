@@ -7,7 +7,9 @@ watermark, no server, no ads, no cost.
 
 Live at **https://pngcut.vercel.app/**
 
+[![Deployed on Vercel](https://img.shields.io/badge/deployed%20on-Vercel-000000?logo=vercel)](https://pngcut.vercel.app/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/source-GitHub-181717?logo=github)](https://github.com/ShahabAhmed01/bg-remover)
 
 ## Why this is different
 
@@ -39,6 +41,8 @@ Live at **https://pngcut.vercel.app/**
 
 ## How it works
 
+**Images**
+
 1. The image is decoded locally into a canvas.
 2. [`@imgly/background-removal`](https://github.com/imgly/background-removal-js)
    downloads the ISNet segmentation model + ONNX Runtime WASM once and caches it,
@@ -46,6 +50,21 @@ Live at **https://pngcut.vercel.app/**
 3. The returned alpha mask is composited with the source image; brushes edit the
    alpha channel directly for lossless-quality edits.
 4. The final canvas is exported at full resolution in the requested format.
+
+**Videos** (`src/video.js`)
+
+1. *Analyze pass* — the clip is seeked frame-by-frame at the chosen fps; each
+   frame is segmented and stored as a compact 8-bit alpha mask.
+2. *Render pass* — the video plays back in realtime (with audio) while each
+   frame is composited with its cached mask and the chosen background into an
+   output canvas.
+3. The canvas is captured with `MediaRecorder` and saved as a WebM download.
+
+**Bulk** (`src/bulk.js`)
+
+1. All picked files (multi-select or a whole folder) join a queue.
+2. Items are processed sequentially, each at full source resolution, and
+   exported as transparent PNGs — individually or all at once.
 
 ## Stack
 
@@ -57,8 +76,8 @@ Live at **https://pngcut.vercel.app/**
 ## Getting started
 
 ```bash
-git clone <your-repo-url> bg-remover
-cd bg-remover
+git clone https://github.com/ShahabAhmed01/bg-remover.git pngcut
+cd pngcut
 npm install
 npm run dev       # start dev server at http://localhost:5173
 npm run build     # production build -> dist/
@@ -67,10 +86,14 @@ npm run preview   # preview production build
 
 ## Deploying to Vercel
 
-The app is a static Vite site — deploy it with zero configuration:
+This repo is already connected to Vercel — the project **`pngcut`** deploys
+automatically to **https://pngcut.vercel.app/** on every push to `main`.
 
-1. Push this repo to GitHub.
-2. In [Vercel](https://vercel.com), **Add New → Project**, import the repo.
+To deploy your own copy:
+
+1. Fork/push this repo to GitHub.
+2. In [Vercel](https://vercel.com), **Add New → Project**, import the repo
+   (or run `vercel link` + `vercel --prod` from the CLI).
 3. Vercel auto-detects Vite (build command `npm run build`, output `dist`).
 4. Deploy.
 
