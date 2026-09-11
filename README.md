@@ -9,7 +9,7 @@ Live at **https://pngcut.vercel.app/**
 
 [![Deployed on Vercel](https://img.shields.io/badge/deployed%20on-Vercel-000000?logo=vercel)](https://pngcut.vercel.app/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![GitHub](https://img.shields.io/badge/source-GitHub-181717?logo=github)](https://github.com/ShahabAhmed01/bg-remover)
+[![GitHub](https://img.shields.io/badge/source-GitHub-181717?logo=github)](https://github.com/ShahabAhmed01/pngcut)
 
 ## Why this is different
 
@@ -76,7 +76,7 @@ Live at **https://pngcut.vercel.app/**
 ## Getting started
 
 ```bash
-git clone https://github.com/ShahabAhmed01/bg-remover.git pngcut
+git clone https://github.com/ShahabAhmed01/pngcut.git pngcut
 cd pngcut
 npm install
 npm run dev       # start dev server at http://localhost:5173
