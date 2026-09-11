@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support — PNGCut</title>
+  <meta name="description" content="Frequently asked questions and troubleshooting for PNGCut, the free in-browser background remover for images and videos." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pngcut.vercel.app/support.html" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/pages.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-name">PNGCut</span></a>
+    <nav class="topbar-actions">
+      <a class="nav-link active" href="/support.html">Support</a>
+      <a class="nav-link" href="/api.html">API</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <h1>Support</h1>
+    <p class="lede">Everything you need to know about PNGCut.</p>
+
+    <h2>Frequently asked questions</h2>
+    <div class="card">
+      <p><strong>Is it really free?</strong><br />Yes — unlimited, no account, no watermark. The AI runs in your browser, so there are no server costs to pass on to you.</p>
+      <p><strong>Are my files uploaded?</strong><br />No. Everything is processed locally. Your files never leave your device.</p>
+      <p><strong>Which image formats work?</strong><br />PNG, JPEG, WebP, GIF, AVIF and BMP. Export as transparent PNG or WebP, or JPEG with a background.</p>
+      <p><strong>Which video formats work?</strong><br />MP4 and WebM (anything your browser can play). Export is WebM with your chosen background and the original audio. Video is processed frame-by-frame, so short clips work best.</p>
+      <p><strong>How does bulk removal work?</strong><br />Click “Bulk removal” to pick many images, or “Select folder” to process every image in a folder (up to 300 per run). Download results individually or all at once.</p>
+      <p><strong>Can I fix imperfect edges?</strong><br />Yes. Use the <strong>Erase</strong> and <strong>Restore</strong> brushes (keyboard: <code>B</code>/<code>R</code>), adjust feathering, and compare with the original (<code>C</code>).</p>
+    </div>
+
+    <h2>Troubleshooting</h2>
+    <div class="card">
+      <p><strong>First run is slow.</strong><br />The AI model (~40–80 MB) is downloaded once and cached. Later runs are much faster and work offline.</p>
+      <p><strong>Poor quality / slow on big images.</strong><br />Chrome, Edge or Brave give the best results (WebGPU acceleration). On Firefox it falls back to WASM, which is slower.</p>
+      <p><strong>Video render failed.</strong><br />Try a shorter clip, lower quality or fps, or another browser. Very long or 4K videos can exceed browser memory.</p>
+      <p><strong>Still stuck?</strong><br />Open an issue on <a href="https://github.com/ShahabAhmed01/bg-remover/issues" rel="noopener">GitHub</a>.</p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <nav class="footer-links">
+      <a href="/about.html">About</a><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a><a href="/contact.html">Contact</a><a href="https://github.com/ShahabAhmed01/bg-remover" rel="noopener">GitHub</a>
+    </nav>
+    <p>© 2026 PNGCut · Free &amp; open source</p>
+  </footer>
+</body>
+</html>

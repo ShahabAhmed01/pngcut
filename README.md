@@ -1,8 +1,11 @@
-# Free Background Remover
+# PNGCut — Free Background Remover for Images & Videos
 
-A free, private, **in-browser** background remover. Drop an image, and a neural
-network running locally in your browser separates the subject from the
-background — no signup, no uploads, no watermark, no server, no ads, no cost.
+A free, private, **in-browser** background remover. Drop an image (or dozens, or a
+whole folder, or a short video) and a neural network running locally in your
+browser separates the subject from the background — no signup, no uploads, no
+watermark, no server, no ads, no cost.
+
+Live at **https://pngcut.vercel.app/**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -18,10 +21,12 @@ background — no signup, no uploads, no watermark, no server, no ads, no cost.
 
 ## Features
 
-- Background removal for **PNG, JPEG, WebP, GIF, AVIF, BMP**
+- Background removal for **PNG, JPEG, WebP, GIF, AVIF, BMP** images
+- **Video background removal** — frame-by-frame, fully on-device, exported as WebM with original audio and a chosen background (white, custom color or blurred original)
+- **Bulk removal** — pick many images or a whole folder (up to 300 per run), download each or all
 - High-resolution output (source resolution is preserved)
 - **Erase** and **Restore** brush for fine edge refinement
-- Undo / redo (20 steps)
+- Undo / redo
 - **Feather edges** for softer cutouts
 - **Compare** slider (original vs. result)
 - Zoom & pan, fit-to-screen
@@ -30,6 +35,7 @@ background — no signup, no uploads, no watermark, no server, no ads, no cost.
 - Sample images to try instantly
 - Keyboard shortcuts: `B` erase, `R` restore, `C` compare, `G` background, `Ctrl+Z` undo, `Ctrl+Shift+Z`/`Ctrl+Y` redo, `[`/`]` brush size, `Space` + drag to pan
 - **SEO** out of the box: Open Graph, Twitter cards, JSON-LD (`WebApplication` + `FAQPage`), sitemap, robots.txt
+- Static pages: About, Terms, Privacy, Contact, Support, API
 
 ## How it works
 
@@ -104,10 +110,9 @@ IMG.LY offers commercial licensing (support@img.ly).
 
 ## Roadmap ideas
 
-- Batch processing (multiple images)
 - Crop & resize tool
 - Color/exposure adjustments
-- Photo "matting" quality presets (small/medium/large model toggle)
+- Timeline trimming for video clips
 
 ## Contributing
 

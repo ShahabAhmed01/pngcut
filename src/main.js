@@ -5,6 +5,8 @@
 import "./style.css";
 import { Editor } from "./editor.js";
 import * as engine from "./engine.js";
+import { initBulk } from "./bulk.js";
+import { initVideo } from "./video.js";
 import { loadImage, downloadBlob, clamp, formatBytes, toCanvasMax, canvasToBlob } from "./utils.js";
 
 const state = {
@@ -73,7 +75,17 @@ const el = {
   zoomOut: qs("#btn-zoom-out"),
   zoomFit: qs("#btn-fit"),
   brushHardnessVal: qs("#brush-hardness-val"),
+  // new views + inputs
+  bulkView: qs("#bulk-view"),
+  videoView: qs("#video-view"),
+  bulkInput: qs("#bulk-input"),
+  folderInput: qs("#folder-input"),
+  videoInput: qs("#video-input"),
+  editorHome: qs("#btn-editor-home"),
 };
+
+const bulkFlow = initBulk({ showToast, goHome: () => showView("hero") });
+const videoFlow = initVideo({ showToast, goHome: () => showView("hero") });
 
 const GRADIENTS = [
   ["#7c3aed", "#06b6d4"],
@@ -131,12 +143,21 @@ function setStatus(msg) {
 }
 
 // ---------------------------------------------------------------------------
+// View switching
+// ---------------------------------------------------------------------------
+function showView(name) {
+  el.hero.classList.toggle("hidden", name !== "hero");
+  el.editor.classList.toggle("hidden", name !== "editor");
+  el.bulkView.classList.toggle("hidden", name !== "bulk");
+  el.videoView.classList.toggle("hidden", name !== "video");
+  el.dropzone.classList.toggle("dropzone--compact", name === "editor");
+}
+
+// ---------------------------------------------------------------------------
 // Upload & processing
 // ---------------------------------------------------------------------------
 function showEditor() {
-  el.hero.classList.add("hidden");
-  el.editor.classList.remove("hidden");
-  el.dropzone.classList.add("dropzone--compact");
+  showView("editor");
   requestAnimationFrame(() => {
     state.editor.layout();
     requestRender();
@@ -207,12 +228,40 @@ async function processImage(blob, name) {
 
 function acceptFile(file) {
   if (!file) return;
+  if (/^video\//.test(file.type || "")) {
+    if (videoFlow.setFile(file)) showView("video");
+    return;
+  }
   const okTypes = /image\/(png|jpeg|webp|gif|avif|bmp|x-icon)/;
   if (!okTypes.test(file.type)) {
-    showToast("Please choose a PNG, JPEG, WebP, GIF, AVIF or BMP image.");
+    showToast("Please choose a PNG, JPEG, WebP, GIF, AVIF or BMP image, or a video.");
     return;
   }
   processImage(file, file.name || "image");
+}
+
+/** Route a set of files to the right mode: single image → editor, many → bulk, video → video. */
+function acceptFiles(files) {
+  const list = Array.from(files || []).filter(Boolean);
+  if (!list.length) return;
+  const videos = list.filter((f) => /^video\//.test(f.type || ""));
+  const images = list.filter((f) => /^image\//.test(f.type || "") && !/^image\/svg/.test(f.type));
+
+  if (images.length > 1 || (images.length && videos.length)) {
+    if (images.length && videos.length) {
+      showToast("Videos are processed one at a time — dropping the images for bulk removal.");
+    }
+    bulkFlow.addFiles(images);
+    showView("bulk");
+    return;
+  }
+  if (images.length === 1) {
+    acceptFile(images[0]);
+    return;
+  }
+  if (videos.length) {
+    acceptFile(videos[0]);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -365,10 +414,11 @@ function bindViewport() {
 // Dropzone + paste + samples
 // ---------------------------------------------------------------------------
 function bindUpload() {
-  el.fileInput.addEventListener("change", () => acceptFile(el.fileInput.files[0]));
+  el.fileInput.addEventListener("change", () => acceptFiles(el.fileInput.files));
 
   el.dropzone.addEventListener("click", (e) => {
     if (e.target === el.fileInput) return;
+    if (e.target.closest(".pick-btn")) return;
     el.fileInput.click();
   });
 
@@ -385,9 +435,35 @@ function bindUpload() {
     })
   );
   el.dropzone.addEventListener("drop", (e) => {
-    const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    acceptFile(file);
+    acceptFiles(e.dataTransfer && e.dataTransfer.files);
   });
+
+  // picker buttons in the dropzone
+  document.querySelector("#btn-pick-images").addEventListener("click", () => el.fileInput.click());
+  document.querySelector("#btn-pick-video").addEventListener("click", () => el.videoInput.click());
+  document.querySelector("#btn-pick-folder").addEventListener("click", () => el.folderInput.click());
+  document.querySelector("#btn-pick-bulk").addEventListener("click", () => el.bulkInput.click());
+
+  el.bulkInput.addEventListener("change", () => {
+    acceptFiles(el.bulkInput.files);
+    el.bulkInput.value = "";
+  });
+
+  el.folderInput.addEventListener("change", () => {
+    const files = Array.from(el.folderInput.files || []).filter(
+      (f) => !(f.webkitRelativePath || "").split("/").pop().startsWith(".")
+    );
+    if (!files.length) {
+      showToast("No images found in that folder.");
+    }
+    acceptFiles(files);
+    el.folderInput.value = "";
+  });
+
+  el.videoInput.addEventListener("change", () => acceptFile(el.videoInput.files[0]));
+
+  // home buttons
+  el.editorHome.addEventListener("click", () => showView("hero"));
 
   document.addEventListener("paste", (e) => {
     const items = e.clipboardData && e.clipboardData.items;

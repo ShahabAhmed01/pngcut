@@ -1,0 +1,5 @@
+dist
+.env*
+.vercel
+node_modules
+.git

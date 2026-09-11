@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://bg-remover.vercel.app/sitemap.xml
+Sitemap: https://pngcut.vercel.app/sitemap.xml
