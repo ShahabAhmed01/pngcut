@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Free, private, in-browser background remover. No signup, no ads, no upload-based processing.",
+  "description": "Free, in-browser background remover. No signup, no upload-based processing.",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@imgly/background-removal": "1.7.0",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "onnxruntime-web": "1.21.0"
   },
   "devDependencies": {

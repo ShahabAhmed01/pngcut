@@ -10,6 +10,8 @@ import { initVideo } from "./video.js";
 import { loadImage, downloadBlob, clamp, formatBytes, toCanvasMax, canvasToBlob } from "./utils.js";
 import { validateImageFile, isSvgFile, sanitizeFilename } from "./validate.js";
 import { classifyError, describeError } from "./errors.js";
+import { inject } from "@vercel/analytics";
+import { injectSpeedInsights } from "@vercel/speed-insights";
 
 const state = {
   editor: new Editor(),
@@ -670,6 +672,9 @@ function bindShortcuts() {
 // Init
 // ---------------------------------------------------------------------------
 function init() {
+  inject();
+  injectSpeedInsights();
+
   buildGradientSwatches();
   bindUpload();
   bindControls();
