@@ -12,6 +12,8 @@
 
 import * as engine from "./engine.js";
 import { downloadBlob, formatBytes, clamp } from "./utils.js";
+import { sanitizeFilename, validateVideoFile } from "./validate.js";
+import { VIDEO_POLICY } from "./config.js";
 
 export function initVideo({ showToast, goHome }) {
   const qs = (s) => document.querySelector(s);
@@ -73,12 +75,10 @@ export function initVideo({ showToast, goHome }) {
       showToast("Please wait for the current job to finish.");
       return false;
     }
-    if (!file || !/^video\//.test(file.type || "")) {
-      showToast("That file is not a video.");
+    const check = validateVideoFile(file);
+    if (!check.ok) {
+      showToast(check.userMessage);
       return false;
-    }
-    if (file.size > 250 * 1024 * 1024) {
-      showToast("Large video — processing may be slow or run out of memory. Clips under ~250 MB work best.");
     }
     reset();
     v.file = file;
@@ -90,12 +90,22 @@ export function initVideo({ showToast, goHome }) {
     waitForMeta(el.video)
       .then((meta) => {
         v.meta = meta;
+        const est = estimateWorkload(meta, Number(el.fps.value), Number(el.quality.value));
         el.info.textContent = `${meta.width} × ${meta.height} · ${meta.duration.toFixed(1)}s · ${formatBytes(file.size)}`;
+        say(`${Math.round(est.frames)} frames to analyze · ~${formatBytes(est.maskBytes)} mask memory`);
       })
       .catch(() => {
-        showToast("Could not load this video in your browser.");
+        showToast("Could not load this video in your browser — the codec may be unsupported.");
       });
     return true;
+  }
+
+  function estimateWorkload(meta, fps, quality) {
+    const scale = Math.min(1, quality / Math.max(meta.width, meta.height));
+    const mw = Math.max(2, Math.round((meta.width * scale) / 2) * 2);
+    const mh = Math.max(2, Math.round((meta.height * scale) / 2) * 2);
+    const frames = Math.max(1, Math.round(meta.duration * fps));
+    return { frames, maskBytes: frames * mw * mh };
   }
 
   function waitForMeta(video) {
@@ -165,7 +175,7 @@ export function initVideo({ showToast, goHome }) {
 
     const total = Math.max(1, Math.round(meta.duration * fps));
     const est = total * mw * mh; // bytes of alpha storage
-    if (est > 500 * 1024 * 1024) {
+    if (est > VIDEO_POLICY.maxMaskBytes) {
       showToast("This video is too long to process in-browser at this quality. Try fewer fps, lower quality, or a shorter clip.");
       return;
     }
@@ -253,7 +263,7 @@ export function initVideo({ showToast, goHome }) {
     const fps = v.fps;
     const total = v.masks.length;
 
-    const long = Math.min(Math.max(meta.width, meta.height), 1920);
+    const long = Math.min(Math.max(meta.width, meta.height), VIDEO_POLICY.maxOutputDimension);
     const aspect = meta.width / meta.height;
     const outW = (aspect >= 1 ? long : Math.round(long * aspect)) & ~1;
     const outH = (aspect >= 1 ? Math.round(long / aspect) : long) & ~1;
@@ -360,7 +370,7 @@ export function initVideo({ showToast, goHome }) {
         } catch {}
         if (save && chunks.length) {
           const blob = new Blob(chunks, { type: mime.split(";")[0] });
-          const base = (v.file.name || "video").replace(/\.[^.]+$/, "");
+          const base = sanitizeFilename(v.file.name || "video", "video");
           downloadBlob(blob, `${base}-nobg.webm`);
           showToast(`Saved WebM (${formatBytes(blob.size)})`);
         } else if (!save) {

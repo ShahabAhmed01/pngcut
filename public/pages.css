@@ -46,3 +46,15 @@ a { color: var(--accent-2); }
 .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; margin: 12px 0 4px; }
 .footer-links a { color: var(--text-dim); text-decoration: none; font-size: 13px; }
 .footer-links a:hover { color: var(--accent-2); }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 4px;
+}
+.code-block {
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: var(--radius);
+  padding: 18px; overflow-x: auto; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 13px; line-height: 1.6; color: var(--text);
+}
+.updated { color: var(--text-faint); font-size: 12.5px; font-style: italic; }
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

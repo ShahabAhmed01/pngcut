@@ -8,16 +8,19 @@ import * as engine from "./engine.js";
 import { initBulk } from "./bulk.js";
 import { initVideo } from "./video.js";
 import { loadImage, downloadBlob, clamp, formatBytes, toCanvasMax, canvasToBlob } from "./utils.js";
+import { validateImageFile, isSvgFile, sanitizeFilename } from "./validate.js";
+import { classifyError, describeError } from "./errors.js";
 
 const state = {
   editor: new Editor(),
   model: "medium", // small | medium | large
-  device: "gpu",
+  device: engine.defaultDevice(),
   format: "png",
   quality: 0.92,
   transparent: true,
   originalName: "image",
   processing: false,
+  jobId: 0, // incremented per operation; guards against stale async results
 };
 
 const qs = (sel) => document.querySelector(sel);
@@ -124,6 +127,7 @@ function setTool(tool) {
   const tools = { erase: el.toolErase, restore: el.toolRestore, compare: el.toolCompare, bg: el.toolBg };
   Object.entries(tools).forEach(([k, btn]) => {
     btn.classList.toggle("active", k === tool);
+    btn.setAttribute("aria-pressed", k === tool ? "true" : "false");
   });
   qs("#brush-section").classList.toggle("hidden", !(tool === "erase" || tool === "restore"));
   qs("#bg-section").classList.toggle("hidden", tool !== "bg");
@@ -178,9 +182,11 @@ async function processImage(blob, name) {
   if (state.processing) return;
   state.processing = true;
   state.originalName = name;
+  const jobId = ++state.jobId;
 
   try {
     const img = await loadImage(blob);
+    if (jobId !== state.jobId) return;
     const { width, height } = img;
     state.editor.setSource(toCanvasMax(img, 4000));
     showEditor();
@@ -198,6 +204,7 @@ async function processImage(blob, name) {
       model: state.model,
       device: state.device,
       onProgress: (key, current, total) => {
+        if (jobId !== state.jobId) return;
         if (key.startsWith("fetch:")) {
           phase = "download";
           modelTotal = Math.max(modelTotal, total);
@@ -205,37 +212,48 @@ async function processImage(blob, name) {
           updateProgress(pct, `Downloading model… ${Math.round(pct)}%`);
         } else if (key.startsWith("compute:")) {
           const step = Number(key.split(":")[2] || 0);
-          const pct = phase === "download" ? 70 : 70;
-          updateProgress(Math.min(99, pct + (step / 4) * 28), "Analyzing image…");
+          updateProgress(Math.min(99, 70 + (step / 4) * 28), "Analyzing image…");
         }
       },
     });
 
+    if (jobId !== state.jobId) return;
+
     updateProgress(99, "Applying mask…");
     await state.editor.setMaskFromBlob(maskBlob);
+    if (jobId !== state.jobId) return;
     updateProgress(100, "Done");
     setStatus("Ready. Use the tools on the left to refine, then download.");
     await new Promise((r) => setTimeout(r, 250));
     setTool(activeTool || "erase");
   } catch (err) {
+    if (jobId !== state.jobId) return;
     console.error(err);
-    showToast("Something went wrong processing this image.");
-    setStatus("Try another image.");
+    const code = classifyError(err);
+    const info = describeError(code);
+    showToast(`${info.title} — ${info.body}`);
+    setStatus("Choose another image or try again.");
   } finally {
-    showProgress(false);
-    state.processing = false;
+    if (jobId === state.jobId) {
+      showProgress(false);
+      state.processing = false;
+    }
   }
 }
 
 function acceptFile(file) {
   if (!file) return;
+  if (isSvgFile(file)) {
+    showToast("SVG files aren't supported for background removal. Use PNG, JPEG, WebP, AVIF or BMP.");
+    return;
+  }
   if (/^video\//.test(file.type || "")) {
     if (videoFlow.setFile(file)) showView("video");
     return;
   }
-  const okTypes = /image\/(png|jpeg|webp|gif|avif|bmp|x-icon)/;
-  if (!okTypes.test(file.type)) {
-    showToast("Please choose a PNG, JPEG, WebP, GIF, AVIF or BMP image, or a video.");
+  const result = validateImageFile(file);
+  if (!result.ok) {
+    showToast(result.userMessage);
     return;
   }
   processImage(file, file.name || "image");
@@ -246,7 +264,14 @@ function acceptFiles(files) {
   const list = Array.from(files || []).filter(Boolean);
   if (!list.length) return;
   const videos = list.filter((f) => /^video\//.test(f.type || ""));
-  const images = list.filter((f) => /^image\//.test(f.type || "") && !/^image\/svg/.test(f.type));
+  const images = list.filter(
+    (f) => /^image\//.test(f.type || "") && !/^image\/svg/.test(f.type) && !/\.svg$/i.test(f.name || "")
+  );
+  const svgs = list.filter(isSvgFile);
+
+  if (svgs.length) {
+    showToast("SVG files were skipped — background removal works on raster images (PNG, JPEG, WebP, AVIF, BMP).");
+  }
 
   if (images.length > 1 || (images.length && videos.length)) {
     if (images.length && videos.length) {
@@ -307,7 +332,7 @@ async function doDownload() {
   let mime = { png: "image/png", webp: "image/webp", jpeg: "image/jpeg" }[format];
   const blob = await canvasToBlob(result, mime, format === "png" ? undefined : quality);
 
-  const base = (state.originalName || "image").replace(/\.[^.]+$/, "");
+  const base = sanitizeFilename(state.originalName, "image");
   const ext = format === "jpeg" ? "jpg" : format;
   downloadBlob(blob, `${base}-no-bg.${ext}`);
   showToast(`Downloaded ${format.toUpperCase()} (${formatBytes(blob.size)})`);
@@ -419,7 +444,7 @@ function bindUpload() {
 
   el.dropzone.addEventListener("click", (e) => {
     if (e.target === el.fileInput) return;
-    if (e.target.closest(".pick-btn")) return;
+    if (e.target.closest(".pick-btn, .primary-upload, a")) return;
     el.fileInput.click();
   });
 
@@ -440,7 +465,7 @@ function bindUpload() {
   });
 
   // picker buttons in the dropzone
-  document.querySelector("#btn-pick-images").addEventListener("click", () => el.fileInput.click());
+  document.querySelector("#btn-upload").addEventListener("click", () => el.fileInput.click());
   document.querySelector("#btn-pick-video").addEventListener("click", () => el.videoInput.click());
   document.querySelector("#btn-pick-folder").addEventListener("click", () => el.folderInput.click());
   document.querySelector("#btn-pick-bulk").addEventListener("click", () => el.bulkInput.click());
@@ -579,6 +604,14 @@ function bindControls() {
     el.qualityVal.textContent = `${Math.round(el.qualityRange.value * 100)}%`;
   });
 
+  el.formatSelect.addEventListener("change", () => {
+    // JPEG cannot preserve transparency — disable the toggle and explain.
+    const jpeg = el.formatSelect.value === "jpeg";
+    el.transparentToggle.disabled = jpeg;
+    el.transparentToggle.checked = !jpeg;
+    el.transparentToggle.closest(".toggle-row").classList.toggle("is-disabled", jpeg);
+  });
+
   window.addEventListener("resize", () => {
     state.editor.layout();
     requestRender();
@@ -603,8 +636,12 @@ function bindControls() {
 }
 
 function selectBgButton(btn) {
-  qsa("#bg-section .bg-option").forEach((b) => b.classList.remove("active"));
+  qsa("#bg-section .bg-option").forEach((b) => {
+    b.classList.remove("active");
+    b.setAttribute("aria-pressed", "false");
+  });
   btn.classList.add("active");
+  btn.setAttribute("aria-pressed", "true");
 }
 
 // keyboard shortcuts
@@ -645,23 +682,30 @@ function init() {
   el.featherVal.textContent = `${el.feather.value}px`;
   el.qualityVal.textContent = `${Math.round(el.qualityRange.value * 100)}%`;
 
-  // warm model pick: gpu when available
-  if (!("gpu" in navigator)) state.device = "cpu";
+  // warm model pick: probe WebGPU properly, fall back to CPU otherwise
+  engine.probeDevice().then((device) => {
+    state.device = device;
+  });
 
   setStatus("Drop an image to remove its background — everything runs in your browser.");
 
-  // Once the neural model has loaded it stays resident for the whole tab:
-  // the underlying engine memoises sessions and every code path (image
-  // editor, video frames, bulk jobs) now shares one canonical config, so it
-  // is downloaded and initialized exactly once — never again.
+  // The neural model loads on first use (not on idle page load) and stays
+  // resident for the whole tab: the underlying engine memoises sessions and
+  // every code path (image editor, video frames, bulk jobs) shares one canonical
+  // config, so it is downloaded and initialized exactly once — never again.
   engine.onModelStatus((status) => {
     if (!el.modelStatus) return;
     if (status === "ready") {
-      el.modelStatus.textContent = "AI model ready";
+      const backend = engine.getActiveBackend();
+      el.modelStatus.textContent = backend === "gpu" ? "Model ready · GPU" : "Model ready · CPU";
       el.modelStatus.classList.add("ready");
       el.modelStatus.hidden = false;
     } else if (status === "loading") {
-      el.modelStatus.textContent = "Syncing model…";
+      el.modelStatus.textContent = "Preparing model…";
+      el.modelStatus.classList.remove("ready");
+      el.modelStatus.hidden = false;
+    } else if (status === "error") {
+      el.modelStatus.textContent = "Model load failed — will retry on use";
       el.modelStatus.classList.remove("ready");
       el.modelStatus.hidden = false;
     } else {
@@ -669,13 +713,22 @@ function init() {
     }
   });
 
-  // Warm the model in the background right away so the first job never waits
-  // on a download and every later job is instant.
-  const warmUp = () => engine.preload({ model: state.model, device: state.device });
-  if (typeof requestIdleCallback === "function") {
-    requestIdleCallback(warmUp, { timeout: 2500 });
-  } else {
-    setTimeout(warmUp, 400);
+  // Prefetch the model only in the background, and only when it is unlikely to
+  // waste the user's data/battery: no explicit Save-Data, adequate device
+  // memory, no file selected yet. First actual processing always triggers a
+  // real load; this is best-effort and never blocks the UI.
+  const mayPrefetch = () => {
+    const saveData = navigator.connection && navigator.connection.saveData;
+    const mem = navigator.deviceMemory || 8;
+    return !saveData && mem >= 4;
+  };
+  if (mayPrefetch()) {
+    const warmUp = () => engine.preload({ model: state.model, device: state.device });
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(warmUp, { timeout: 4000 });
+    } else {
+      setTimeout(warmUp, 800);
+    }
   }
 }
 

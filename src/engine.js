@@ -3,6 +3,7 @@
 let modulePromise = null;
 let preloadPromise = null;
 let modelStatus = "idle"; // "idle" | "loading" | "ready" | "error"
+let activeBackend = "unknown"; // "gpu" | "cpu" | "unknown"
 const statusListeners = new Set();
 
 // Every call shares this canonical output shape so all code paths (image
@@ -13,7 +14,24 @@ export function defaultModel() {
   return "medium";
 }
 
-/** WebGPU when the browser supports it, plain WASM otherwise. */
+/**
+ * A real WebGPU capability probe, not just `"gpu" in navigator`.
+ * Tries to obtain an adapter; only returns "gpu" if that actually succeeds in
+ * a secure context. Returns "cpu" otherwise (callers must not depend on GPU).
+ */
+export async function probeDevice() {
+  try {
+    if (typeof navigator === "undefined" || !("gpu" in navigator)) return "cpu";
+    if (!window.isSecureContext) return "cpu";
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) return "cpu";
+    return "gpu";
+  } catch {
+    return "cpu";
+  }
+}
+
+/** Synchronous hint: used only as an initial guess before `probeDevice`. */
 export function defaultDevice() {
   return typeof navigator !== "undefined" && "gpu" in navigator ? "gpu" : "cpu";
 }
@@ -29,6 +47,14 @@ export function loadEngine() {
 export function onModelStatus(cb) {
   statusListeners.add(cb);
   return () => statusListeners.delete(cb);
+}
+
+export function getModelStatus() {
+  return modelStatus;
+}
+
+export function getActiveBackend() {
+  return activeBackend;
 }
 
 function setModelStatus(status) {
@@ -66,6 +92,7 @@ export function preload(options = {}) {
   preloadPromise = (async () => {
     const engine = await loadEngine();
     await engine.preload(makeConfig(model, device));
+    activeBackend = device;
     setModelStatus("ready");
     return true;
   })().catch((err) => {
@@ -83,14 +110,29 @@ export function preload(options = {}) {
  * @param {{model?:string, device?:string, output?:object, onProgress?:function}} options
  */
 export async function segmentForeground(blob, options = {}) {
+  const resolvedDevice = await probeDevice();
   const engine = await loadEngine();
   const model = options.model || defaultModel();
-  const device = options.device || defaultDevice();
+  const device = options.device || resolvedDevice;
   const config = makeConfig(model, device, options.output, options.onProgress);
+
+  activeBackend = device;
+
   // Warm the canonical session (if a cold start) so this very call and every
   // later one reuse the exact same loaded model — no re-downloads, no re-init.
   if (!preloadPromise && modelStatus !== "ready") {
     preload({ model, device });
   }
-  return engine.segmentForeground(blob, config);
+  try {
+    return await engine.segmentForeground(blob, config);
+  } catch (err) {
+    // WebGPU can fail mid-inference even after a successful probe; retry on CPU
+    // once before giving up, so a GPU hiccup doesn't strand the user.
+    if (device === "gpu") {
+      console.warn("GPU inference failed; retrying on CPU.", err);
+      activeBackend = "cpu";
+      return engine.segmentForeground(blob, makeConfig(model, "cpu", options.output, options.onProgress));
+    }
+    throw err;
+  }
 }

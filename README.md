@@ -1,9 +1,9 @@
-# PNGCut — Free Background Remover for Images & Videos
+# PNGCut — Free, Private Background Remover for Images & Videos
 
-A free, private, **in-browser** background remover. Drop an image (or dozens, or a
-whole folder, or a short video) and a neural network running locally in your
-browser separates the subject from the background — no signup, no uploads, no
-watermark, no server, no ads, no cost.
+A free, private, **in-browser** background remover. Drop an image (or dozens, or
+a whole folder, or a short video) and a neural network running locally in your
+browser separates the subject from the background — no signup, no watermark, no
+upload-based processing, no server-side processing of your files.
 
 Live at **https://pngcut.vercel.app/**
 
@@ -11,38 +11,54 @@ Live at **https://pngcut.vercel.app/**
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub](https://img.shields.io/badge/source-GitHub-181717?logo=github)](https://github.com/ShahabAhmed01/pngcut)
 
-## Why this is different
+## Privacy model
 
-- **100% client-side.** The AI model runs via [ONNX Runtime Web](https://onnxruntime.ai/)
-  inside the user's browser (WebGPU/WASM). Images are decoded and processed on
-  the device and **never leave it**. Nothing is uploaded, so there is nothing to
-  host, meter, or charge for — and nothing to leak.
-- **Free forever.** No quotas, no API keys, no usage tiers.
-- **No account.** No signup, no login, no email.
-- **No tracking.** No analytics, no ads, no third-party scripts.
+Your **selected media is processed locally in your browser** and is not uploaded
+for background removal. The app itself is served by a hosting provider and
+downloads its AI model/runtime assets once from a CDN; those requests do not
+contain your image or video. See [`public/privacy.html`](public/privacy.html) for
+the precise wording.
 
 ## Features
 
-- Background removal for **PNG, JPEG, WebP, GIF, AVIF, BMP** images
-- **Video background removal** — frame-by-frame, fully on-device, exported as WebM with original audio and a chosen background (white, custom color or blurred original)
-- **Bulk removal** — pick many images or a whole folder (up to 300 per run), download each or all
-- High-resolution output (source resolution is preserved)
+- Background removal for **PNG, JPEG, WebP, GIF, AVIF, BMP** images (depending
+  on what your browser can decode)
+- **Video background removal** — frame-by-frame, fully on-device, exported as
+  WebM with a chosen background (white, custom color or blurred original); audio
+  is preserved when the browser allows
+- **Bulk removal** — pick many images or a whole folder (up to 300 per run),
+  download each or all; per-item retry and cancellation
 - **Erase** and **Restore** brush for fine edge refinement
-- Undo / redo
+- Undo / redo (memory-bounded)
 - **Feather edges** for softer cutouts
 - **Compare** slider (original vs. result)
 - Zoom & pan, fit-to-screen
-- Background replacement: transparent, solid color, gradient, custom image, or blurred original
+- Background replacement: transparent, solid color, gradient, custom image, or
+  blurred original
 - Export as **PNG (transparent)**, **WebP (transparent)** or **JPEG**
 - Sample images to try instantly
-- Keyboard shortcuts: `B` erase, `R` restore, `C` compare, `G` background, `Ctrl+Z` undo, `Ctrl+Shift+Z`/`Ctrl+Y` redo, `[`/`]` brush size, `Space` + drag to pan
-- **SEO** out of the box: Open Graph, Twitter cards, JSON-LD (`WebApplication` + `FAQPage`), sitemap, robots.txt
-- Static pages: About, Terms, Privacy, Contact, Support, API
-- **Model stays resident** — the AI model is preloaded in the background on page load and kept in memory for the whole tab; every image, video frame and bulk job reuses the same inference session (never re-downloaded, never re-initialized)
+- Keyboard shortcuts: `B` erase, `R` restore, `C` compare, `G` background,
+  `Ctrl+Z` undo, `Ctrl+Shift+Z`/`Ctrl+Y` redo, `[`/`]` brush size, `Space` + drag
+  to pan
+
+## Known limitations
+
+These are deliberate and disclosed — not hidden:
+
+- **Image working size.** Very large images are processed at a bounded working
+  size (up to 4000 px on the long side) so they can't exhaust browser memory.
+- **Video output.** Video output is capped at 1920 px on the long side and saved
+  as WebM.
+- **Animated GIF.** GIF input is treated as a still image (the first frame).
+- **SVG.** SVG input is *not* supported for background removal (privacy/safety).
+- **Backend.** WebGPU is used when available; otherwise CPU (WASM). The active
+  backend is shown in the header status chip.
+- **Local safety.** There is no account or usage quota, but practical processing
+  is limited by your device and browser.
 
 ## How it works
 
-**Images**
+**Images** (`src/main.js`, `src/editor.js`)
 
 1. The image is decoded locally into a canvas.
 2. [`@imgly/background-removal`](https://github.com/imgly/background-removal-js)
@@ -50,31 +66,53 @@ Live at **https://pngcut.vercel.app/**
    then runs inference on the device.
 3. The returned alpha mask is composited with the source image; brushes edit the
    alpha channel directly for lossless-quality edits.
-4. The final canvas is exported at full resolution in the requested format.
 
 **Videos** (`src/video.js`)
 
 1. *Analyze pass* — the clip is seeked frame-by-frame at the chosen fps; each
    frame is segmented and stored as a compact 8-bit alpha mask.
-2. *Render pass* — the video plays back in realtime (with audio) while each
-   frame is composited with its cached mask and the chosen background into an
-   output canvas.
+2. *Render pass* — the video plays back in realtime (with audio when supported)
+   while each frame is composited with its cached mask and the chosen background.
 3. The canvas is captured with `MediaRecorder` and saved as a WebM download.
+   Output is capped at 1920 px on the long side.
 
 **Bulk** (`src/bulk.js`)
 
 1. All picked files (multi-select or a whole folder) join a queue.
-2. Items are processed sequentially, each at full source resolution, and
-   exported as transparent PNGs — individually or all at once.
+2. Items are processed sequentially at a bounded working resolution and exported
+   as transparent PNGs — individually or all at once.
+
+## Architecture
+
+Vanilla JS + Canvas 2D, organized into small cohesive modules:
+
+```text
+src/
+  config.js      policy constants + supported formats (single source of truth)
+  validate.js    media validation + filename sanitization
+  errors.js      structured error codes → actionable user messages
+  engine.js      inference engine adapter (WebGPU/CPU probe + fallback)
+  editor.js      full-resolution source + alpha mask + brush/zoom/compare
+  background.js  background rendering (color/gradient/image/blur)
+  compositor.js  foreground/mask compositing
+  utils.js       canvas/image/blob + memory helpers
+  bulk.js        bulk queue
+  video.js       video analyze + render
+  main.js        app controller + wiring
+```
 
 ## Stack
 
 - [Vite](https://vitejs.dev/) — build tool
-- [@imgly/background-removal](https://www.npmjs.com/package/@imgly/background-removal) — in-browser background removal
-- [onnxruntime-web](https://www.npmjs.com/package/onnxruntime-web) — ONNX inference runtime
+- [@imgly/background-removal](https://www.npmjs.com/package/@imgly/background-removal) — in-browser background removal (AGPL-3.0)
+- [onnxruntime-web](https://www.npmjs.com/package/onnxruntime-web) — ONNX inference runtime (MIT)
 - Vanilla JS + Canvas 2D — no UI framework, minimal runtime, fast load
 
+See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for full license details.
+
 ## Getting started
+
+Requirements: Node.js 18+.
 
 ```bash
 git clone https://github.com/ShahabAhmed01/pngcut.git pngcut
@@ -83,6 +121,7 @@ npm install
 npm run dev       # start dev server at http://localhost:5173
 npm run build     # production build -> dist/
 npm run preview   # preview production build
+npm test          # run unit tests
 ```
 
 ## Deploying to Vercel
@@ -98,31 +137,34 @@ To deploy your own copy:
 3. Vercel auto-detects Vite (build command `npm run build`, output `dist`).
 4. Deploy.
 
-### Important: cross-origin isolation headers
+### Security & cross-origin isolation headers
 
-The ONNX WASM runtime is significantly faster when
-[cross-origin isolation](https://web.dev/articles/coop-coep) is enabled
-(`SharedArrayBuffer` → multi-threaded WASM). `vercel.json` already sets:
+`vercel.json` sets cross-origin isolation, a strict Content-Security-Policy,
+HSTS, and other headers:
 
 ```
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: credentialless
+Content-Security-Policy: ... (see vercel.json)
+Strict-Transport-Security: max-age=63072000
 ```
 
-These are also set for local dev in `vite.config.js`. The app **still works** if
-these headers are absent (it falls back to single-threaded WASM); it is just
-slower on large images. If you self-host on another platform, add the same two
-headers.
+Cross-origin isolation unlocks multi-threaded WASM (`SharedArrayBuffer`), making
+ONNX Runtime Web significantly faster. The app still works (single-threaded WASM)
+if those headers are absent. The same COOP/COEP headers are set for local dev in
+`vite.config.js`.
 
 ### Model hosting (optional self-hosting)
 
-By default the model + WASM files are fetched from IMG.LY's CDN (free, CORS and
-CORP enabled). To self-host them:
+By default the model + WASM files are fetched from IMG.LY's CDN. To self-host:
 
-1. Download `https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/` (all files, retaining structure) into `public/models/`.
+1. Download `https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/`
+   (all files, retaining structure) into `public/models/`.
 2. In `src/engine.js`, pass `publicPath: "/models/"` in the config.
+3. Update the CSP `connect-src` in `vercel.json` if the CDN is no longer needed.
 
-This removes the external CDN dependency while keeping everything else identical.
+Only redistribute these assets if IMG.LY's license permits (see
+`THIRD_PARTY_NOTICES.md`).
 
 ## Licensing note
 
@@ -130,15 +172,10 @@ This repository is MIT licensed. It depends on
 [`@imgly/background-removal`](https://github.com/imgly/background-removal-js),
 which is licensed under **AGPL-3.0**. Review that license to understand your
 obligations when redistributing or modifying the combined work; for other terms,
-IMG.LY offers commercial licensing (support@img.ly).
-
-## Roadmap ideas
-
-- Crop & resize tool
-- Color/exposure adjustments
-- Timeline trimming for video clips
+IMG.LY offers commercial licensing.
 
 ## Contributing
 
 Bug reports and pull requests are welcome. The project is deliberately
-dependency-light; please keep new features client-side and free.
+dependency-light; please keep new features client-side and free. See
+[`SECURITY.md`](SECURITY.md) for the security reporting process.

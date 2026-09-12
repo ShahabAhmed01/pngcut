@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>API — PNGCut</title>
-  <meta name="description" content="Use PNGCut's client-side engine in your own project: a free JavaScript background removal API that runs in the browser." />
+  <title>Client-side engine — PNGCut</title>
+  <meta name="description" content="PNGCut does not provide a hosted server API. Learn how to integrate the same client-side background-removal engine into your own project." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://pngcut.vercel.app/api.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -20,31 +20,31 @@
   </header>
 
   <main class="page">
-    <h1>API</h1>
-    <p class="lede">PNGCut has no paid hosted API — the whole engine is a free, open-source JavaScript library that runs in <em>your</em> users' browsers, with the same privacy guarantees as this site.</p>
+    <h1>Client-side engine integration</h1>
+    <p class="lede">PNGCut does not provide a hosted server API. It is a free, open-source JavaScript library that runs in <em>your</em> users' browsers, with the same privacy guarantees as this site.</p>
 
     <h2>Use the engine in your own app</h2>
     <p>The underlying engine is <a href="https://www.npmjs.com/package/@imgly/background-removal" rel="noopener">@imgly/background-removal</a> (ISNet + ONNX Runtime Web):</p>
-    <div class="card"><pre style="margin:0; overflow-x:auto; font-size:13px; line-height:1.6;"><code>npm install @imgly/background-removal
+    <div class="code-block"><code>npm install @imgly/background-removal
 
 import { segmentForeground } from "@imgly/background-removal";
 
-// `blob` = any image the user picked — never uploaded anywhere
+// `blob` = any image the user picked — processed locally, never uploaded
 const maskBlob = await segmentForeground(blob, {
   model: "medium",        // "small" | "medium" | "large"
   device: "gpu",          // WebGPU when available, WASM otherwise
   output: { format: "image/png", quality: 1.0 },
   progress: (key, current, total) => console.log(key, current, total),
-});</code></pre></div>
+});</code></div>
 
     <h2>Compositing the result</h2>
-    <div class="card"><pre style="margin:0; overflow-x:auto; font-size:13px; line-height:1.6;"><code>const img = await createImageBitmap(maskBlob);
+    <div class="code-block"><code>const img = await createImageBitmap(maskBlob);
 const canvas = new OffscreenCanvas(img.width, img.height);
 const ctx = canvas.getContext("2d");
 ctx.drawImage(sourceBitmap, 0, 0);
 ctx.globalCompositeOperation = "destination-in";
 ctx.drawImage(img, 0, 0);
-// `canvas` now holds the cutout with transparency</code></pre></div>
+// `canvas` now holds the cutout with transparency</code></div>
 
     <h2>Notes</h2>
     <ul>
