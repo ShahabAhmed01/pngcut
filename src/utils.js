@@ -14,9 +14,10 @@ export function loadImage(blob) {
       URL.revokeObjectURL(url);
       resolve(img);
     };
-    img.onerror = (e) => {
+    img.onerror = () => {
+      // Reject with a real Error (mapped by classifyError), never a bare Event.
       URL.revokeObjectURL(url);
-      reject(e);
+      reject(new Error("Image decode failed — the file may be corrupt or in an unsupported format."));
     };
     img.src = url;
   });
@@ -118,4 +119,35 @@ export function checkerboardPattern(size = 16, light = "#e8e8e8", dark = "#cacac
   ctx.fillRect(0, 0, size, size);
   ctx.fillRect(size, size, size, size);
   return ctx.createPattern(canvas, "repeat");
+}
+
+/**
+ * Probe whether `canvas.toBlob` really encodes a MIME type. Browsers *fall
+ * back silently* to PNG for unsupported types, so the returned blob's type
+ * must equal the request — that's the only reliable signal.
+ * (Used for the optional AVIF export option.)
+ * @returns {Promise<boolean>}
+ */
+export function canEncodeMime(mime) {
+  return new Promise((resolve) => {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 2;
+      canvas.height = 2;
+      if (typeof canvas.toBlob !== "function") {
+        resolve(false);
+        return;
+      }
+      canvas.toBlob((blob) => resolve(!!blob && blob.type === mime), mime, 0.8);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+/** True if the browser can encode AVIF (probed once, memoized). */
+let avifSupport = null;
+export async function supportsAvifExport() {
+  if (avifSupport == null) avifSupport = await canEncodeMime("image/avif");
+  return avifSupport;
 }

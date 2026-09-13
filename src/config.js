@@ -43,6 +43,12 @@ export const BULK_POLICY = {
   maxItems: 300,
 };
 
+/** Bulk ZIP policy — caps how much payload is packed into one archive. */
+export const ZIP_POLICY = {
+  /** Max total uncompressed payload per ZIP (~128 MB keeps tab memory safe). */
+  maxPayloadBytes: 128 * 1024 * 1024,
+};
+
 /**
  * Supported input image containers. This reflects what current browsers can
  * decode; actual decode success is still verified at runtime.
@@ -62,10 +68,11 @@ export const VIDEO_INPUT_FORMATS = [
   { label: "WebM", mime: "video/webm" },
 ];
 
-/** Image export formats. */
+/** Image export formats. `runtimeOnly` formats need a per-browser probe. */
 export const EXPORT_FORMATS = {
   png: { label: "PNG", mime: "image/png", transparent: true, lossless: true },
   webp: { label: "WebP", mime: "image/webp", transparent: true, lossless: false },
+  avif: { label: "AVIF", mime: "image/avif", transparent: true, lossless: false, runtimeOnly: true },
   jpeg: { label: "JPEG", mime: "image/jpeg", transparent: false, lossless: false },
 };
 

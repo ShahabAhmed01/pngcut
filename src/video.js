@@ -360,14 +360,20 @@ export function initVideo({ showToast, goHome }) {
       finished = true;
       try {
         el.video.pause();
-      } catch {}
+      } catch {
+        /* video may already be dead — nothing to do */
+      }
       try {
         rec.stop();
-      } catch {}
+      } catch {
+        /* recorder may have already stopped — nothing to do */
+      }
       stopped.then(() => {
         try {
           if (audioCtx) audioCtx.close();
-        } catch {}
+        } catch {
+          /* audio context may already be closed */
+        }
         if (save && chunks.length) {
           const blob = new Blob(chunks, { type: mime.split(";")[0] });
           const base = sanitizeFilename(v.file.name || "video", "video");

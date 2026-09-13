@@ -9,7 +9,8 @@
 import * as engine from "./engine.js";
 import { loadImage, toCanvasMax, canvasToBlob, downloadBlob, formatBytes } from "./utils.js";
 import { validateImageFile, isSvgFile, sanitizeFilename } from "./validate.js";
-import { BULK_POLICY } from "./config.js";
+import { BULK_POLICY, ZIP_POLICY } from "./config.js";
+import { createZipBlob } from "./zip.js";
 
 const MAX_ITEMS = BULK_POLICY.maxItems;
 
@@ -21,6 +22,7 @@ export function initBulk({ showToast, goHome }) {
     summary: qs("#bulk-summary"),
     add: qs("#btn-bulk-add"),
     download: qs("#btn-bulk-download"),
+    zip: qs("#btn-bulk-zip"),
     retry: qs("#btn-bulk-retry"),
     cancel: qs("#btn-bulk-cancel"),
     clear: qs("#btn-bulk-clear"),
@@ -83,7 +85,7 @@ export function initBulk({ showToast, goHome }) {
   function cardHTML(item) {
     const done = item.status === "done";
     const failed = item.status === "failed";
-    let actions = "";
+    let actions;
     if (done) {
       actions = `<button type="button" class="pick-btn bulk-dl" data-dl="${item.id}">Download</button>`;
     } else if (failed) {
@@ -122,6 +124,7 @@ export function initBulk({ showToast, goHome }) {
     el.count.textContent = `${items.length} image${items.length === 1 ? "" : "s"}`;
     el.summary.textContent = done ? `${done} done${failed ? ` · ${failed} failed` : ""}` : "";
     el.download.disabled = done === 0 || running;
+    if (el.zip) el.zip.disabled = done === 0 || running;
     el.add.disabled = items.length >= MAX_ITEMS;
     if (el.retry) el.retry.classList.toggle("hidden", failed === 0);
   }
@@ -141,7 +144,8 @@ export function initBulk({ showToast, goHome }) {
     try {
       const img = await loadImage(item.file);
       const source = toCanvasMax(img, 4000);
-      const maskBlob = await engine.segmentForeground(item.file, { model: "medium" });
+      // Model tier resolves on-device (engine.defaultModel) unless overridden.
+      const maskBlob = await engine.segmentForeground(item.file, {});
       const maskImg = await loadImage(maskBlob);
       const fg = document.createElement("canvas");
       fg.width = source.width;
@@ -198,6 +202,43 @@ export function initBulk({ showToast, goHome }) {
       download(item);
       await new Promise((r) => setTimeout(r, 350));
     }
+  }
+
+  /**
+   * Pack every finished result into a single ZIP download. Sequential click
+   * chains ("Download all") are blocked by popup/download defenders for more
+   * than a handful of files — a ZIP is the reliable way to get N results at
+   * once. Payload is capped by ZIP_POLICY to keep tab memory safe.
+   */
+  async function downloadZip() {
+    const done = items.filter((i) => i.resultBlob);
+    if (!done.length || running) return;
+    showToast(`Packing ${done.length} PNG file${done.length === 1 ? "" : "s"}…`);
+    const files = [];
+    const used = new Set();
+    let payload = 0;
+    let packed = 0;
+    for (const item of done) {
+      if (payload + item.resultBlob.size > ZIP_POLICY.maxPayloadBytes) {
+        showToast(
+          `ZIP capped at ${formatBytes(ZIP_POLICY.maxPayloadBytes)} — packed ${packed} of ${done.length}. Use per-card downloads for the rest.`
+        );
+        break;
+      }
+      const base = sanitizeFilename(item.name, "image");
+      let name = `${base}-no-bg.png`;
+      let k = 2;
+      while (used.has(name)) name = `${base}-no-bg-${k++}.png`;
+      used.add(name);
+      const data = new Uint8Array(await item.resultBlob.arrayBuffer());
+      payload += data.length;
+      packed += 1;
+      files.push({ name, data });
+    }
+    if (!files.length) return;
+    const blob = createZipBlob(files);
+    downloadBlob(blob, "pngcut-no-bg.zip");
+    showToast(`ZIP saved (${formatBytes(blob.size)})`);
   }
 
   function clearAll() {
@@ -263,6 +304,7 @@ export function initBulk({ showToast, goHome }) {
 
   el.add.addEventListener("click", () => document.querySelector("#bulk-input").click());
   el.download.addEventListener("click", downloadAll);
+  if (el.zip) el.zip.addEventListener("click", downloadZip);
   el.clear.addEventListener("click", clearAll);
   if (el.retry) {
     el.retry.addEventListener("click", retryAll);

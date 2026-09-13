@@ -11,6 +11,11 @@ file lists them for compliance.
 | `@imgly/background-removal` | 1.7.0 | AGPL-3.0 | https://github.com/imgly/background-removal-js |
 | `onnxruntime-web` | 1.21.0 | MIT | https://github.com/microsoft/onnxruntime |
 
+`@vercel/analytics` and `@vercel/speed-insights` are MIT and loaded from
+Vercel's same-origin bundle. The ZIP writer (`src/zip.js`), mask-refinement
+pipeline (`src/refine.js`), service worker and PWA assets shipped with PNGCut
+are original code under this repository's MIT license.
+
 ### `@imgly/background-removal` (AGPL-3.0)
 
 This package implements the in-browser background-removal engine (model loading,

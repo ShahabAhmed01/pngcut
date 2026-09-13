@@ -27,19 +27,30 @@ the precise wording.
   WebM with a chosen background (white, custom color or blurred original); audio
   is preserved when the browser allows
 - **Bulk removal** — pick many images or a whole folder (up to 300 per run),
-  download each or all; per-item retry and cancellation
-- **Erase** and **Restore** brush for fine edge refinement
+  download each, all at once, or **as a single ZIP**; per-item retry and
+  cancellation
+- **Edge refinement** — a deterministic mask post-process (speckle removal,
+  edge-aware smoothing, halo-crushing contrast, optional crisp threshold)
+  cleans the raw model cutout before you edit: *Auto / Crisp / Soft / Off*
+- **Device-adaptive AI model** — Best (full-precision ISNet), Balanced (FP16,
+  default) or Fast (quantized), pre-picked by GPU/CPU capability and rememberable
+- **Erase** and **Restore** brush for fine edge refinement (live preview while
+  painting, even on multi-megapixel images)
 - Undo / redo (memory-bounded)
 - **Feather edges** for softer cutouts
 - **Compare** slider (original vs. result)
-- Zoom & pan, fit-to-screen
+- Zoom & pan, fit-to-screen, **paste an image straight from the clipboard**
 - Background replacement: transparent, solid color, gradient, custom image, or
   blurred original
-- Export as **PNG (transparent)**, **WebP (transparent)** or **JPEG**
+- Export as **PNG (transparent)**, **WebP (transparent)**, **AVIF (transparent,
+  when your browser can encode it)** or **JPEG** — plus **copy the result to
+  the clipboard** (`Ctrl+P`)
+- **Installable PWA** — add to home screen; after the first visit the app and
+  AI model are cached, so background removal keeps working **offline**
 - Sample images to try instantly
-- Keyboard shortcuts: `B` erase, `R` restore, `C` compare, `G` background,
-  `Ctrl+Z` undo, `Ctrl+Shift+Z`/`Ctrl+Y` redo, `[`/`]` brush size, `Space` + drag
-  to pan
+- Keyboard shortcuts: `?` lists them all — `B` erase, `R` restore, `C` compare,
+  `G` background, `Ctrl+Z` undo, `Ctrl+Shift+Z`/`Ctrl+Y` redo, `Ctrl+P` copy,
+  `[`/`]` brush size, `Space` + drag to pan
 
 ## Known limitations
 
@@ -52,9 +63,13 @@ These are deliberate and disclosed — not hidden:
 - **Animated GIF.** GIF input is treated as a still image (the first frame).
 - **SVG.** SVG input is *not* supported for background removal (privacy/safety).
 - **Backend.** WebGPU is used when available; otherwise CPU (WASM). The active
-  backend is shown in the header status chip.
+  backend is shown in the header status chip. The model tier (full/FP16/quant)
+  adapts to the device (see *Features*).
 - **Local safety.** There is no account or usage quota, but practical processing
   is limited by your device and browser.
+- **AVIF export** appears only when the browser can really encode it; whether
+  the chosen model tier applies to video/bulk too: bulk uses the same on-device
+  default, the video pipeline has its own quality ladder.
 
 ## How it works
 
@@ -91,12 +106,14 @@ src/
   config.js      policy constants + supported formats (single source of truth)
   validate.js    media validation + filename sanitization
   errors.js      structured error codes → actionable user messages
-  engine.js      inference engine adapter (WebGPU/CPU probe + fallback)
-  editor.js      full-resolution source + alpha mask + brush/zoom/compare
+  engine.js      inference engine adapter (WebGPU/CPU probe + fallback, model tiers)
+  editor.js      full-resolution source + mask + brush/zoom/compare (cached compositing)
   background.js  background rendering (color/gradient/image/blur)
   compositor.js  foreground/mask compositing
+  refine.js      mask post-processing (median/box-blur/contrast/threshold on alpha)
+  zip.js         dependency-free STORE ZIP writer (CRC-32, zip-slip safe)
   utils.js       canvas/image/blob + memory helpers
-  bulk.js        bulk queue
+  bulk.js        bulk queue + single-ZIP download
   video.js       video analyze + render
   main.js        app controller + wiring
 ```

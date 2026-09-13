@@ -7,16 +7,19 @@ import { Editor } from "./editor.js";
 import * as engine from "./engine.js";
 import { initBulk } from "./bulk.js";
 import { initVideo } from "./video.js";
-import { loadImage, downloadBlob, clamp, formatBytes, toCanvasMax, canvasToBlob } from "./utils.js";
+import { loadImage, downloadBlob, clamp, formatBytes, toCanvasMax, canvasToBlob, supportsAvifExport } from "./utils.js";
 import { validateImageFile, isSvgFile, sanitizeFilename } from "./validate.js";
 import { classifyError, describeError } from "./errors.js";
+import { IMAGE_POLICY, EXPORT_FORMATS } from "./config.js";
+import { REFINE_PRESETS } from "./refine.js";
 import { inject } from "@vercel/analytics";
 import { injectSpeedInsights } from "@vercel/speed-insights";
 
 const state = {
   editor: new Editor(),
-  model: "medium", // small | medium | large
+  model: null, // "large" | "medium" | "small" — null resolves on-device
   device: engine.defaultDevice(),
+  refine: "auto", // edge-refinement preset (see src/refine.js)
   format: "png",
   quality: 0.92,
   transparent: true,
@@ -24,6 +27,28 @@ const state = {
   processing: false,
   jobId: 0, // incremented per operation; guards against stale async results
 };
+
+/** Resolve the model tier actually used for processing. */
+function resolveModel() {
+  return state.model || engine.defaultModel(state.device);
+}
+
+// --- persisted preferences (toolbar model/refine choices) ------------------
+const PREFS_KEY = "pngcut.prefs.v1";
+function loadPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+function savePrefs() {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ model: state.model, refine: state.refine }));
+  } catch {
+    /* storage unavailable — preferences are best-effort */
+  }
+}
 
 const qs = (sel) => document.querySelector(sel);
 const qsa = (sel) => Array.from(document.querySelectorAll(sel));
@@ -71,6 +96,15 @@ const el = {
   qualityRange: qs("#quality-range"),
   qualityVal: qs("#quality-val"),
   transparentToggle: qs("#transparent-toggle"),
+  exportSize: qs("#export-size"),
+  copy: qs("#btn-copy"),
+  // toolbar selects
+  modelSelect: qs("#model-select"),
+  refineSelect: qs("#refine-select"),
+  // shortcuts overlay
+  shortcutsBtn: qs("#btn-shortcuts"),
+  shortcutsDialog: qs("#shortcuts-dialog"),
+  shortcutsClose: qs("#btn-shortcuts-close"),
   // info
   fileInfo: qs("#file-info"),
   // footer/status
@@ -115,8 +149,8 @@ state.editor.onChange(() => {
 });
 
 function updateButtonState() {
-  el.undo.disabled = state.editor._undo.length === 0;
-  el.redo.disabled = state.editor._redo.length === 0;
+  el.undo.disabled = !state.editor.canUndo();
+  el.redo.disabled = !state.editor.canRedo();
 }
 
 // ---------------------------------------------------------------------------
@@ -190,7 +224,7 @@ async function processImage(blob, name) {
     const img = await loadImage(blob);
     if (jobId !== state.jobId) return;
     const { width, height } = img;
-    state.editor.setSource(toCanvasMax(img, 4000));
+    state.editor.setSource(toCanvasMax(img, IMAGE_POLICY.maxDimension));
     showEditor();
     requestAnimationFrame(() => state.editor.fit());
 
@@ -199,16 +233,14 @@ async function processImage(blob, name) {
     showProgress(true);
     updateProgress(2, `Preparing… (${formatBytes(blob.size)})`);
 
-    let phase = "download";
     let modelTotal = 0;
 
     const maskBlob = await engine.segmentForeground(blob, {
-      model: state.model,
+      model: resolveModel(),
       device: state.device,
       onProgress: (key, current, total) => {
         if (jobId !== state.jobId) return;
         if (key.startsWith("fetch:")) {
-          phase = "download";
           modelTotal = Math.max(modelTotal, total);
           const pct = modelTotal ? Math.min(100, (current / modelTotal) * 100) : 0;
           updateProgress(pct, `Downloading model… ${Math.round(pct)}%`);
@@ -222,6 +254,7 @@ async function processImage(blob, name) {
     if (jobId !== state.jobId) return;
 
     updateProgress(99, "Applying mask…");
+    state.editor.setRefine(state.refine); // sync preset, then apply at ingestion
     await state.editor.setMaskFromBlob(maskBlob);
     if (jobId !== state.jobId) return;
     updateProgress(100, "Done");
@@ -318,7 +351,8 @@ function buildGradientSwatches() {
 // ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
-async function doDownload() {
+/** Shared encoder for Download + Copy. Returns { blob, format, mime }. */
+async function encodeResult() {
   const format = el.formatSelect.value;
   const quality = Number(el.qualityRange.value);
   const transparent = el.transparentToggle.checked && format !== "jpeg";
@@ -331,13 +365,55 @@ async function doDownload() {
     includeBg
   );
 
-  let mime = { png: "image/png", webp: "image/webp", jpeg: "image/jpeg" }[format];
-  const blob = await canvasToBlob(result, mime, format === "png" ? undefined : quality);
+  const fmt = EXPORT_FORMATS[format] || EXPORT_FORMATS.png;
+  const mime = fmt.mime;
+  let blob = await canvasToBlob(result, mime, format === "png" ? undefined : quality);
 
+  // Silent PNG fallback guard: browsers fall back to PNG bytes for unsupported
+  // encodes (old WebP/Safari, optional AVIF) — catch the mismatch, re-encode
+  // honestly as PNG, and tell the user what actually happened.
+  if (!blob || (blob.type && blob.type !== mime)) {
+    if (format === "png") return { blob, format: "png", mime: "image/png" };
+    blob = await canvasToBlob(result, "image/png");
+    showToast(`Your browser can't encode ${fmt.label} — saved as PNG instead.`);
+    return { blob, format: "png", mime: "image/png", fallback: true };
+  }
+  return { blob, format, mime };
+}
+
+async function doDownload() {
+  const { blob, format } = await encodeResult();
   const base = sanitizeFilename(state.originalName, "image");
   const ext = format === "jpeg" ? "jpg" : format;
   downloadBlob(blob, `${base}-no-bg.${ext}`);
+  if (el.exportSize) el.exportSize.textContent = formatBytes(blob.size);
   showToast(`Downloaded ${format.toUpperCase()} (${formatBytes(blob.size)})`);
+}
+
+async function doCopy() {
+  try {
+    if (!state.editor.maskCanvas) {
+      showToast("Remove a background first, then copy the result.");
+      return;
+    }
+    if (!navigator.clipboard || typeof window.ClipboardItem !== "function") {
+      showToast("Clipboard images aren't supported in this browser.");
+      return;
+    }
+    const { blob } = await encodeResult();
+    // Clipboard only accepts PNG reliably.
+    const png = blob.type === "image/png" ? blob : await encodeAsPng();
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+    showToast("Result copied to clipboard (PNG).");
+  } catch (err) {
+    console.warn("copy failed", err);
+    showToast("Couldn't copy the result — try downloading instead.");
+  }
+}
+
+async function encodeAsPng() {
+  const result = state.editor.renderFull(undefined, false);
+  return canvasToBlob(result, "image/png");
 }
 
 // ---------------------------------------------------------------------------
@@ -390,7 +466,7 @@ function bindViewport() {
       return;
     }
     if (activeTool === "erase" || activeTool === "restore") {
-      if (state.editor._painting) {
+      if (state.editor.isPainting()) {
         const img = state.editor.screenToImage(sx, sy);
         state.editor.moveStroke(img.x, img.y);
       }
@@ -404,7 +480,7 @@ function bindViewport() {
   });
 
   const end = () => {
-    if (state.editor._painting) state.editor.endStroke();
+    if (state.editor.isPainting()) state.editor.endStroke();
     panning = false;
     compareDragging = false;
     vp.style.cursor = "";
@@ -585,13 +661,23 @@ function bindControls() {
 
   el.bgImageInput.addEventListener("change", async () => {
     const f = el.bgImageInput.files[0];
+    el.bgImageInput.value = "";
     if (!f) return;
-    const img = await loadImage(f);
-    const c = document.createElement("canvas");
-    c.width = img.naturalWidth || img.width;
-    c.height = img.naturalHeight || img.height;
-    c.getContext("2d").drawImage(img, 0, 0);
-    state.editor.setBackground({ type: "image", imageCanvas: c });
+    // Background images go through the same validation + bounded working size
+    // as foreground images — an 8000 px custom bg would blow tab memory.
+    const check = validateImageFile(f);
+    if (!check.ok) {
+      showToast(check.userMessage);
+      return;
+    }
+    try {
+      const img = await loadImage(f);
+      const c = toCanvasMax(img, IMAGE_POLICY.maxDimension);
+      state.editor.setBackground({ type: "image", imageCanvas: c });
+      setStatus("Custom background image set.");
+    } catch {
+      showToast("PNGCut couldn't decode that background image.");
+    }
   });
 
   el.blurAmount.addEventListener("input", () => {
@@ -608,11 +694,51 @@ function bindControls() {
 
   el.formatSelect.addEventListener("change", () => {
     // JPEG cannot preserve transparency — disable the toggle and explain.
-    const jpeg = el.formatSelect.value === "jpeg";
-    el.transparentToggle.disabled = jpeg;
-    el.transparentToggle.checked = !jpeg;
-    el.transparentToggle.closest(".toggle-row").classList.toggle("is-disabled", jpeg);
+    const opaque = el.formatSelect.value === "jpeg";
+    el.transparentToggle.disabled = opaque;
+    el.transparentToggle.checked = !opaque;
+    el.transparentToggle.closest(".toggle-row").classList.toggle("is-disabled", opaque);
+    if (el.exportSize) el.exportSize.textContent = "";
   });
+
+  // Copy the current result to the clipboard (hidden when unsupported).
+  if (el.copy) {
+    const supported =
+      typeof navigator !== "undefined" && navigator.clipboard && typeof window.ClipboardItem === "function";
+    el.copy.classList.toggle("hidden", !supported);
+    el.copy.addEventListener("click", doCopy);
+  }
+
+  // Model quality tier (persisted; null = resolve on-device)
+  if (el.modelSelect) {
+    el.modelSelect.addEventListener("change", () => {
+      const v = el.modelSelect.value;
+      state.model = engine.isModelTier(v) ? v : null;
+      savePrefs();
+      const tier = state.model || engine.defaultModel(state.device);
+      const meta = engine.MODEL_TIERS[tier];
+      showToast(
+        state.model
+          ? `Model: ${meta.label} — ${meta.hint}`
+          : `Model: Auto (${meta.label}) — ${meta.hint}`
+      );
+    });
+  }
+
+  // Edge refinement preset (persisted; re-derives the mask from raw output)
+  if (el.refineSelect) {
+    el.refineSelect.addEventListener("change", () => {
+      const preset = el.refineSelect.value;
+      state.refine = preset;
+      savePrefs();
+      state.editor.setRefine(preset);
+      showToast(
+        preset === "off"
+          ? "Raw model mask — no edge refinement."
+          : `Edge refinement: ${preset}. Brush history was reset.`
+      );
+    });
+  }
 
   window.addEventListener("resize", () => {
     state.editor.layout();
@@ -647,8 +773,23 @@ function selectBgButton(btn) {
 }
 
 // keyboard shortcuts
+function toggleShortcuts(show = !el.shortcutsDialog.classList.contains("hidden")) {
+  el.shortcutsDialog.classList.toggle("hidden", !show);
+  if (show) el.shortcutsClose?.focus();
+  else el.shortcutsBtn?.focus();
+}
+
 function bindShortcuts() {
-  window.addEventListener("keydown", (e) => {
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !el.shortcutsDialog.classList.contains("hidden")) {
+      toggleShortcuts(false);
+      return;
+    }
+    if (e.key === "?" && !e.target.matches("input,textarea,select")) {
+      e.preventDefault();
+      toggleShortcuts();
+      return;
+    }
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.key.toLowerCase() === "z") {
       e.preventDefault();
@@ -657,20 +798,66 @@ function bindShortcuts() {
     } else if (mod && e.key.toLowerCase() === "y") {
       e.preventDefault();
       state.editor.redo();
+    } else if (mod && e.key.toLowerCase() === "p") {
+      // copy the current result without reaching for the button
+      e.preventDefault();
+      doCopy();
     } else if (!e.target.matches("input,textarea,select") && el.editor && !el.editor.classList.contains("hidden")) {
       if (e.key === "b") setTool("erase");
       else if (e.key === "r") setTool("restore");
       else if (e.key === "c") setTool("compare");
       else if (e.key === "g") setTool("bg");
-      else if (e.key === "[") state.editor.setBrushSize((state.editor.brush.size -= 5));
-      else if (e.key === "]") state.editor.setBrushSize((state.editor.brush.size += 5));
+      else if (e.key === "[") state.editor.adjustBrushSize(-5);
+      else if (e.key === "]") state.editor.adjustBrushSize(5);
     }
+  });
+
+  el.shortcutsBtn?.addEventListener("click", () => toggleShortcuts());
+  el.shortcutsClose?.addEventListener("click", () => toggleShortcuts(false));
+  el.shortcutsDialog?.addEventListener("click", (e) => {
+    // click on the dimmed backdrop closes
+    if (e.target === el.shortcutsDialog) toggleShortcuts(false);
   });
 }
 
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
+/** Apply persisted toolbar preferences (model tier + refinement preset). */
+function applyPrefs() {
+  const prefs = loadPrefs();
+  if (engine.isModelTier(prefs.model)) {
+    state.model = prefs.model;
+    if (el.modelSelect) el.modelSelect.value = prefs.model;
+  }
+  if (prefs.refine && prefs.refine in REFINE_PRESETS) {
+    state.refine = prefs.refine;
+    if (el.refineSelect) el.refineSelect.value = prefs.refine;
+  }
+  state.editor.setRefine(state.refine);
+}
+
+/** Add the AVIF export option only when this browser can actually encode it. */
+async function addAvifOption() {
+  if (!(await supportsAvifExport())) return;
+  if (el.formatSelect.querySelector('option[value="avif"]')) return;
+  const opt = document.createElement("option");
+  opt.value = "avif";
+  opt.textContent = "AVIF (transparent, modern)";
+  const webp = el.formatSelect.querySelector('option[value="webp"]');
+  el.formatSelect.insertBefore(opt, webp ? webp.nextSibling : null);
+}
+
+/** PWA service worker — true offline support after first use (prod only). */
+function registerServiceWorker() {
+  if (!import.meta.env.PROD) return;
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  if (!window.isSecureContext) return;
+  navigator.serviceWorker.register("/sw.js").catch(() => {
+    /* SW is an enhancement; the app works fully without it */
+  });
+}
+
 function init() {
   inject();
   injectSpeedInsights();
@@ -680,6 +867,9 @@ function init() {
   bindControls();
   bindViewport();
   bindShortcuts();
+  applyPrefs();
+  addAvifOption();
+  registerServiceWorker();
 
   state.editor.attachViewport(el.viewport);
   state.editor.layout();
@@ -728,7 +918,7 @@ function init() {
     return !saveData && mem >= 4;
   };
   if (mayPrefetch()) {
-    const warmUp = () => engine.preload({ model: state.model, device: state.device });
+    const warmUp = () => engine.preload({ model: resolveModel(), device: state.device });
     if (typeof requestIdleCallback === "function") {
       requestIdleCallback(warmUp, { timeout: 4000 });
     } else {

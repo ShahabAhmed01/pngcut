@@ -6,18 +6,30 @@
  * mask (255 = keep, 0 = remove). The foreground is produced by taking the
  * source RGB and applying the mask alpha via `destination-in`.
  *
+ * Refinement: the raw model mask (`rawMaskCanvas`) is post-processed by
+ * src/refine.js according to `refinePreset` before editing; brushes then edit
+ * the refined mask directly. Changing the preset re-derives the mask from the
+ * raw output (brush history resets, like re-running the auto mask).
+ *
  * Brushes only mutate the alpha channel:
  *   - "erase" lowers alpha (destination-out, soft round stamp)
  *   - "restore" raises alpha back to opaque (source-over, soft white stamp)
+ *
+ * Performance: the composited foreground is cached in `_fgCanvas` and updated
+ * incrementally (dirty-rect only) while painting, so strokes stay smooth on
+ * multi-megapixel images. The background layer is cached per bg version.
  */
 
 import { renderBackground } from "./background.js";
 import { checkerboardPattern, loadImage } from "./utils.js";
+import { REFINE_PRESETS, refineMaskCanvas } from "./refine.js";
 
 export class Editor {
   constructor() {
     this.sourceCanvas = null; // original, full resolution
-    this.maskCanvas = null; // editable alpha mask
+    this.rawMaskCanvas = null; // untouched model output
+    this.maskCanvas = null; // refined + brush-editable alpha mask
+    this.refinePreset = "auto";
 
     this.background = { type: "transparent" };
 
@@ -38,6 +50,15 @@ export class Editor {
     this._redo = [];
     this._undoBudget = 64 * 1024 * 1024; // 64 MB of alpha bytes across history
 
+    // cached foreground (source ⊗ mask) + background layer
+    this._fgCanvas = null;
+    this._fgValid = false;
+    this._fgDirty = null; // pending rect while painting
+    this._fgMaskKind = ""; // "raw" | "feathered" — which mask built the cache
+    this._bgCanvas = null;
+    this._bgKey = "";
+    this._bgVersion = 0;
+    this._renderPending = false;
 
     this.viewport = null;
     this._checker = null;
@@ -65,10 +86,18 @@ export class Editor {
 
   _resetMaskState() {
     this.maskCanvas = null;
+    this.rawMaskCanvas = null;
     this._undo = [];
     this._redo = [];
     this._featheredMask = null;
     this._featherCacheKey = "";
+    this._fgCanvas = null;
+    this._fgValid = false;
+    this._fgDirty = null;
+    this._fgMaskKind = "";
+    this._bgCanvas = null;
+    this._bgKey = "";
+    this._bgVersion = 0;
     this._dirty = true;
   }
 
@@ -78,30 +107,55 @@ export class Editor {
     return Math.max(1, Math.floor(this._undoBudget / px));
   }
 
-  /** Replace the alpha mask from a segmentation result (white=keep). */
+  /**
+   * Replace the raw mask from a segmentation result (white=keep), then apply
+   * the active refinement preset to produce the editable mask.
+   */
   async setMaskFromBlob(blob) {
     const img = await loadImage(blob);
     const w = this.width();
     const h = this.height();
-    const mask = document.createElement("canvas");
-    mask.width = w;
-    mask.height = h;
-    const ctx = mask.getContext("2d");
+    const raw = document.createElement("canvas");
+    raw.width = w;
+    raw.height = h;
+    const ctx = raw.getContext("2d");
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, w, h);
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(img, 0, 0, w, h);
     ctx.globalCompositeOperation = "source-over";
-    this.maskCanvas = mask;
+    this.rawMaskCanvas = raw;
+    this._applyRefine();
+  }
+
+  /** Re-derive the editable mask from the raw model output (resets history). */
+  setRefine(preset) {
+    this.refinePreset = preset in REFINE_PRESETS ? preset : "auto";
+    this._applyRefine();
+    return this.refinePreset;
+  }
+
+  _applyRefine() {
+    if (!this.rawMaskCanvas) return;
+    this.maskCanvas = refineMaskCanvas(this.rawMaskCanvas, this.refinePreset);
     this._undo = [];
     this._redo = [];
     this._invalidateFeather();
+    this._invalidateFg();
     this._emit();
   }
 
   _invalidateFeather() {
     this._featheredMask = null;
     this._featherCacheKey = "";
+    this._dirty = true;
+  }
+
+  /** Full foreground-cache invalidation (mask or feather changed globally). */
+  _invalidateFg() {
+    this._fgValid = false;
+    this._fgDirty = null;
+    this._fgMaskKind = "";
     this._dirty = true;
   }
 
@@ -118,15 +172,31 @@ export class Editor {
     this.brush.tool = tool === "restore" ? "restore" : "erase";
   }
   setBrushSize(size) {
-    this.brush.size = Math.max(2, size);
+    this.brush.size = Math.max(2, Math.min(400, Number(size) || this.brush.size));
+  }
+  /** Public helper for keyboard `[` / `]` adjustments. */
+  adjustBrushSize(delta) {
+    this.setBrushSize(this.brush.size + delta);
   }
   setBrushHardness(h) {
     this.brush.hardness = Math.max(0, Math.min(1, h));
   }
 
+  // Public introspection (main.js must not reach into privates)
+  canUndo() {
+    return this._undo.length > 0;
+  }
+  canRedo() {
+    return this._redo.length > 0;
+  }
+  isPainting() {
+    return this._painting;
+  }
+
   setFeather(px) {
     this.feather = Math.max(0, px);
     this._invalidateFeather();
+    this._invalidateFg();
     this._emit();
   }
 
@@ -137,6 +207,7 @@ export class Editor {
     const prev = this._undo.pop();
     this._applyAlphaBuffer(prev);
     this._invalidateFeather();
+    this._invalidateFg();
     this._emit();
   }
 
@@ -147,6 +218,7 @@ export class Editor {
     const next = this._redo.pop();
     this._applyAlphaBuffer(next);
     this._invalidateFeather();
+    this._invalidateFg();
     this._emit();
   }
 
@@ -172,6 +244,7 @@ export class Editor {
     while (this._undo.length > this._maxUndoSteps()) this._undo.shift();
     this._redo = [];
     this._painting = true;
+    this._fgDirty = null;
     this._lastPoint = { x, y };
     this._stamp(x, y);
   }
@@ -194,6 +267,12 @@ export class Editor {
     this._painting = false;
     this._lastPoint = null;
     this._invalidateFeather();
+    if (this.feather > 0) {
+      // The feathered composite can't be updated incrementally — rebuild fully.
+      this._invalidateFg();
+    }
+    // With feather 0 the dirty-rect updates were pixel-exact, so the cached
+    // foreground stays valid and blending continues instantly.
     this._emit();
   }
 
@@ -212,13 +291,124 @@ export class Editor {
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+    this._markFgDirty(x - r, y - r, this.brush.size, this.brush.size);
+    this._requestRender();
+  }
+
+  /**
+   * While painting, record the stamp region so `render` can update the cached
+   * foreground incrementally instead of recompositing the whole image.
+   * Inflated by the feather radius + margin in case a feathered mask is in use.
+   */
+  _markFgDirty(x, y, w, h) {
+    if (!this._fgValid) return; // full rebuild pending — rect tracking moot
+    const m = Math.ceil(this.feather) + 2;
+    const x0 = Math.max(0, Math.floor(x - m));
+    const y0 = Math.max(0, Math.floor(y - m));
+    const x1 = Math.min(this.width(), Math.ceil(x + w + m));
+    const y1 = Math.min(this.height(), Math.ceil(y + h + m));
+    if (x1 <= x0 || y1 <= y0) return;
+    const d = this._fgDirty;
+    this._fgDirty = d
+      ? {
+          x: Math.min(d.x, x0),
+          y: Math.min(d.y, y0),
+          w: Math.max(d.x + d.w, x1) - Math.min(d.x, x0),
+          h: Math.max(d.y + d.h, y1) - Math.min(d.y, y0),
+        }
+      : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  /** rAF-throttled live preview during strokes (cheap thanks to dirty rects). */
+  _requestRender() {
+    if (this._renderPending) return;
+    this._renderPending = true;
+    requestAnimationFrame(() => {
+      this._renderPending = false;
+      this.render();
+    });
   }
 
   // ---- Background --------------------------------------------------------
 
   setBackground(bg) {
     this.background = { ...this.background, ...bg };
+    this._bgVersion++; // invalidates the cached background layer
     this._emit();
+  }
+
+  /**
+   * Cached background layer: rendered only when the bg settings or size change
+   * (key = dimensions + `_bgVersion`), instead of on every frame.
+   */
+  _getBackground() {
+    const w = this.width();
+    const h = this.height();
+    if (!this._bgCanvas) {
+      this._bgCanvas = document.createElement("canvas");
+      this._bgCanvas.width = w;
+      this._bgCanvas.height = h;
+    }
+    const key = `${w}x${h}:v${this._bgVersion}`;
+    if (this._bgKey !== key) {
+      renderBackground(this.background, w, h, this.sourceCanvas, this._bgCanvas);
+      this._bgKey = key;
+    }
+    return this._bgCanvas;
+  }
+
+  /**
+   * Cached foreground (source ⊗ mask).
+   *
+   * `kind` describes which mask variant built the cache: while painting we
+   * composite from the crisp raw mask (fast dirty-rect updates; a live
+   * feathered rebuild per move would be far too slow), otherwise from the
+   * feathered mask. A kind switch triggers exactly one full rebuild.
+   *
+   * @param {HTMLCanvasElement} maskSource mask canvas to apply
+   * @param {"raw"|"feathered"} kind which mask variant `maskSource` is
+   * @returns {HTMLCanvasElement|null}
+   */
+  _getForeground(maskSource, kind = "feathered") {
+    if (!this.sourceCanvas || !this.maskCanvas) return null;
+    const w = this.width();
+    const h = this.height();
+    if (!this._fgCanvas) {
+      this._fgCanvas = document.createElement("canvas");
+      this._fgCanvas.width = w;
+      this._fgCanvas.height = h;
+    }
+    const fg = this._fgCanvas;
+    const ctx = fg.getContext("2d");
+
+    if (this._fgValid && this._fgMaskKind !== kind) this._invalidateFg();
+
+    if (!this._fgValid) {
+      // full rebuild
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(this.sourceCanvas, 0, 0, w, h);
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.drawImage(maskSource, 0, 0, w, h);
+      ctx.globalCompositeOperation = "source-over";
+      this._fgValid = true;
+      this._fgMaskKind = kind;
+      this._fgDirty = null;
+    } else if (this._fgDirty) {
+      // incremental dirty-rect update (painting path)
+      const d = this._fgDirty;
+      ctx.clearRect(d.x, d.y, d.w, d.h);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(d.x, d.y, d.w, d.h);
+      ctx.clip();
+      ctx.drawImage(this.sourceCanvas, d.x, d.y, d.w, d.h, d.x, d.y, d.w, d.h);
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.drawImage(maskSource, d.x, d.y, d.w, d.h, d.x, d.y, d.w, d.h);
+      ctx.restore();
+      ctx.globalCompositeOperation = "source-over";
+      this._fgDirty = null;
+    }
+    return fg;
   }
 
   // ---- Compare -----------------------------------------------------------
@@ -330,22 +520,14 @@ export class Editor {
         ctx.fillStyle = onTransparent;
         ctx.fillRect(0, 0, w, h);
       } else {
-        const bg = renderBackground(this.background, w, h, this.sourceCanvas);
-        ctx.drawImage(bg, 0, 0);
+        ctx.drawImage(this._getBackground(), 0, 0);
       }
     }
 
-    const mask = this._currentMask();
-    if (mask && this.sourceCanvas) {
-      const fg = document.createElement("canvas");
-      fg.width = w;
-      fg.height = h;
-      const fctx = fg.getContext("2d");
-      fctx.drawImage(this.sourceCanvas, 0, 0, w, h);
-      fctx.globalCompositeOperation = "destination-in";
-      fctx.drawImage(mask, 0, 0, w, h);
-      ctx.drawImage(fg, 0, 0);
-    }
+    // Export always runs outside a stroke; use the feathered mask when active.
+    const maskSource = this.feather > 0 ? this._currentMask() : this.maskCanvas;
+    const fg = this._getForeground(maskSource, this.feather > 0 ? "feathered" : "raw");
+    if (fg) ctx.drawImage(fg, 0, 0);
     return out;
   }
 
@@ -367,26 +549,20 @@ export class Editor {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    const bg = renderBackground(this.background, this.width(), this.height(), this.sourceCanvas);
-    ctx.drawImage(bg, 0, 0, this.width(), this.height());
+    ctx.drawImage(this._getBackground(), 0, 0);
 
     if (this.background.type === "transparent") {
       ctx.fillStyle = this._checkerPattern();
       ctx.fillRect(0, 0, this.width(), this.height());
     }
 
-    // foreground
-    const mask = this._currentMask();
-    if (mask && this.sourceCanvas) {
-      const fg = document.createElement("canvas");
-      fg.width = this.width();
-      fg.height = this.height();
-      const fctx = fg.getContext("2d");
-      fctx.drawImage(this.sourceCanvas, 0, 0, this.width(), this.height());
-      fctx.globalCompositeOperation = "destination-in";
-      fctx.drawImage(mask, 0, 0, this.width(), this.height());
-      ctx.drawImage(fg, 0, 0, this.width(), this.height());
-    }
+    // While painting: crisp raw-mask composite (incremental, no feather rebuild).
+    // Otherwise: feathered mask when a feather is set.
+    const painting = this._painting;
+    const feathered = !painting && this.feather > 0;
+    const maskSource = feathered ? this._currentMask() : this.maskCanvas;
+    const fg = this._getForeground(maskSource, feathered ? "feathered" : "raw");
+    if (fg) ctx.drawImage(fg, 0, 0);
 
     // compare divider overlay (original on left, result on right)
     if (this._compareMode && this.sourceCanvas) {

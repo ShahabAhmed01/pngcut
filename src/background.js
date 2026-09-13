@@ -11,13 +11,19 @@ export const BACKGROUND_TYPES = {
 
 /**
  * Draw the current background into a canvas the same size as the image.
- * Returns an opaque (or transparent) canvas that the foreground is drawn over.
+ * Pass `target` (a canvas) to render into a cached canvas instead of allocating
+ * a new one on every call. Returns an opaque (or transparent) canvas that the
+ * foreground is drawn over.
  */
-export function renderBackground(bg, width, height, sourceCanvas) {
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+export function renderBackground(bg, width, height, sourceCanvas, target = null) {
+  const canvas = target || document.createElement("canvas");
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
   const ctx = canvas.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.filter = "none";
+  ctx.clearRect(0, 0, width, height);
 
   switch (bg.type) {
     case "transparent":

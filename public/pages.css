@@ -55,6 +55,9 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   font-size: 13px; line-height: 1.6; color: var(--text);
 }
 .updated { color: var(--text-faint); font-size: 12.5px; font-style: italic; }
+/* CSP-safe: no inline style attributes — everything lives here */
+.card h2:first-child, .card p:first-child { margin-top: 0; }
+.page-404 { text-align: center; padding-top: 80px; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }

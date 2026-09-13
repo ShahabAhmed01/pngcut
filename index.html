@@ -11,6 +11,8 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://pngcut.vercel.app/" />
     <meta name="theme-color" content="#0b0d12" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="manifest" href="/manifest.webmanifest" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -21,6 +23,7 @@
     <meta property="og:image" content="https://pngcut.vercel.app/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="PNGCut — free background removal in your browser" />
     <meta property="og:locale" content="en_US" />
 
     <!-- Twitter -->
@@ -28,6 +31,7 @@
     <meta name="twitter:title" content="PNGCut — Free Private Background Removal for Images &amp; Videos" />
     <meta name="twitter:description" content="Cut out backgrounds from images and videos directly in your browser. No signup, no watermark, no upload-based processing." />
     <meta name="twitter:image" content="https://pngcut.vercel.app/og-image.png" />
+    <meta name="twitter:image:alt" content="PNGCut — free background removal in your browser" />
 
     <!-- Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -51,6 +55,33 @@
         "Erase and restore brush editing",
         "Custom background replacement",
         "No signup or upload-based processing"
+      ]
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to remove a background from an image in PNGCut",
+      "totalTime": "PT1M",
+      "estimatedCost": { "@type": "MonetaryAmount", "currency": "USD", "value": "0" },
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Drop your file",
+          "text": "Upload an image by dragging it into the page, pasting it, or picking one — or a whole folder, or dozens at once. Files are read locally and aren't uploaded for background removal."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "The model removes the background",
+          "text": "A neural network (ISNet via ONNX Runtime Web) runs in your browser and separates the subject from the background."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Refine and download",
+          "text": "Touch up edges with the erase/restore brush, adjust edge refinement, pick a background, and export PNG, WebP, AVIF or JPEG — or copy the result to the clipboard."
+        }
       ]
     }
     </script>
@@ -89,7 +120,15 @@
           "name": "Can I remove backgrounds from many files at once?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Use Bulk Removal to pick multiple images, or Select Folder to process every image in a folder. Each result can be downloaded individually or all at once."
+            "text": "Yes. Use Bulk Removal to pick multiple images, or Select Folder to process every image in a folder. Results can be downloaded as a single ZIP or individually."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does PNGCut work offline?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, after the first visit. PNGCut is installable and caches its app files and AI model in your browser, so background removal keeps working with no connection. Nothing is uploaded in any case."
           }
         }
       ]
@@ -110,8 +149,8 @@
       </a>
       <nav class="topbar-actions">
         <span id="model-status" class="model-chip" hidden>AI model ready</span>
-        <a class="nav-link" href="/support.html">Support</a>
-        <a class="nav-link" href="/api.html">API</a>
+        <a class="nav-link" href="/support">Support</a>
+        <a class="nav-link" href="/api">API</a>
         <a class="gh-link" href="https://github.com/ShahabAhmed01/pngcut" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub">
           <span>Open source</span>
           <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
@@ -145,7 +184,7 @@
               </div>
 
               <p class="dropzone-types">PNG · JPEG · WebP · GIF · AVIF · BMP · MP4 · WebM</p>
-              <p class="privacy-note">Processed on your device · not uploaded for background removal · <a href="/privacy.html">how privacy works</a></p>
+              <p class="privacy-note">Processed on your device · not uploaded for background removal · <a href="/privacy">how privacy works</a></p>
             </div>
           </section>
 
@@ -232,7 +271,8 @@
           <span class="stage-spacer"></span>
           <button id="btn-bulk-add" class="new-image-btn">Add more</button>
           <button id="btn-bulk-retry" class="new-image-btn hidden">Retry failed</button>
-          <button id="btn-bulk-download" class="download-btn download-btn--sm" disabled>Download all</button>
+          <button id="btn-bulk-zip" class="download-btn download-btn--sm" disabled>Download ZIP</button>
+          <button id="btn-bulk-download" class="new-image-btn" disabled>Download all</button>
           <button id="btn-bulk-cancel" class="new-image-btn hidden">Cancel</button>
           <button id="btn-bulk-clear" class="new-image-btn">Clear</button>
         </div>
@@ -303,6 +343,28 @@
             <label class="slider-label">Feather edges <span id="feather-val">0px</span></label>
             <input id="feather" class="range" type="range" min="0" max="12" value="0" step="0.5" />
           </div>
+
+          <div id="refine-row" class="panel-section">
+            <label class="slider-label subtle" for="refine-select">Edge refinement</label>
+            <select id="refine-select" class="select">
+              <option value="auto" selected>Auto (recommended)</option>
+              <option value="crisp">Crisp — hard edges</option>
+              <option value="soft">Soft — gentle</option>
+              <option value="off">Off — raw model</option>
+            </select>
+            <p class="panel-hint">Cleans the model's raw cutout: removes halo fringes and speckles before you edit.</p>
+          </div>
+
+          <div id="model-row" class="panel-section">
+            <label class="slider-label subtle" for="model-select">AI model</label>
+            <select id="model-select" class="select">
+              <option value="" selected>Auto (recommended)</option>
+              <option value="medium">Balanced — FP16 ISNet</option>
+              <option value="large">Best — full precision</option>
+              <option value="small">Fast — smallest</option>
+            </select>
+            <p class="panel-hint">Runs locally on your device. Auto picks by GPU/CPU capability; your choice is remembered.</p>
+          </div>
         </aside>
         <div class="stage">
           <div class="stage-toolbar">
@@ -323,6 +385,9 @@
             </button>
             <span class="stage-spacer"></span>
             <span id="file-info" class="file-info"></span>
+            <button id="btn-shortcuts" class="ghost-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" aria-haspopup="dialog">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M18 14h.01M9 14h6"/></svg>
+            </button>
           </div>
 
           <div class="viewport-wrap">
@@ -358,6 +423,12 @@
           <button id="btn-download" class="download-btn">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
             Download image
+          </button>
+          <span id="export-size" class="export-size" role="status"></span>
+
+          <button id="btn-copy" class="new-image-btn hidden">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy result (Ctrl+P)
           </button>
 
           <button id="btn-new" class="new-image-btn">Remove a new background</button>
@@ -400,11 +471,15 @@
           </details>
           <details>
             <summary>Which formats are supported?</summary>
-            <p>Images: PNG, JPEG, WebP, GIF, AVIF and BMP — exported as transparent PNG, WebP or JPEG. Videos: MP4 and WebM — exported as WebM with your chosen background. Actual playback and export depend on what your browser supports.</p>
+            <p>Images: PNG, JPEG, WebP, GIF, AVIF and BMP — exported as transparent PNG, WebP, AVIF (where your browser can encode it) or JPEG. Videos: MP4 and WebM — exported as WebM with your chosen background. Actual playback and export depend on what your browser supports.</p>
           </details>
           <details>
             <summary>Can I remove backgrounds from many files at once?</summary>
-            <p>Yes. Use Bulk Removal to pick multiple images, or Select Folder to process every image in a folder. Each result can be downloaded individually or all at once.</p>
+            <p>Yes. Use Bulk Removal to pick multiple images, or Select Folder to process every image in a folder. Download every result as a single ZIP, or one by one.</p>
+          </details>
+          <details>
+            <summary>Does PNGCut work offline?</summary>
+            <p>Yes, after the first visit. PNGCut is installable and caches its app files and AI model in your browser, so background removal keeps working with no connection.</p>
           </details>
         </div>
       </section>
@@ -413,16 +488,37 @@
     <footer class="footer">
       <p>Free &amp; open source. Background removal runs in your browser — your selected media isn't uploaded for background removal.</p>
       <nav class="footer-links">
-        <a href="/about.html">About</a>
-        <a href="/terms.html">Terms</a>
-        <a href="/privacy.html">Privacy</a>
-        <a href="/support.html">Support</a>
-        <a href="/contact.html">Contact</a>
+        <a href="/about">About</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/support">Support</a>
+        <a href="/contact">Contact</a>
         <a href="https://github.com/ShahabAhmed01/pngcut" target="_blank" rel="noopener noreferrer">GitHub</a>
       </nav>
       <p class="footer-meta">© 2026 PNGCut · Built with an in-browser neural network. No ads.</p>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <!-- ============ KEYBOARD SHORTCUTS OVERLAY ============ -->
+    <div id="shortcuts-dialog" class="shortcuts-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+      <div class="shortcuts-panel">
+        <h3 id="shortcuts-title">Keyboard shortcuts</h3>
+        <table class="shortcut-table">
+          <tbody>
+            <tr><td>Paste image from clipboard</td><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td></tr>
+            <tr><td>Copy result to clipboard</td><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td></tr>
+            <tr><td>Undo / redo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td></tr>
+            <tr><td>Erase / restore tool</td><td><kbd>B</kbd> / <kbd>R</kbd></td></tr>
+            <tr><td>Compare / background tool</td><td><kbd>C</kbd> / <kbd>G</kbd></td></tr>
+            <tr><td>Brush size</td><td><kbd>[</kbd> / <kbd>]</kbd></td></tr>
+            <tr><td>Pan (hold) + drag</td><td><kbd>Space</kbd></td></tr>
+            <tr><td>Zoom</td><td>Mouse wheel</td></tr>
+            <tr><td>This list</td><td><kbd>?</kbd></td></tr>
+          </tbody>
+        </table>
+        <button id="btn-shortcuts-close" class="new-image-btn" type="button">Close</button>
+      </div>
+    </div>
   </body>
 </html>

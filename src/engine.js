@@ -4,36 +4,69 @@ let modulePromise = null;
 let preloadPromise = null;
 let modelStatus = "idle"; // "idle" | "loading" | "ready" | "error"
 let activeBackend = "unknown"; // "gpu" | "cpu" | "unknown"
+let deviceProbe = null; // memoized WebGPU probe result
 const statusListeners = new Set();
 
 // Every call shares this canonical output shape so all code paths (image
 // editor, video frames, bulk jobs) produce the same memoisation key.
 const CANONICAL_OUTPUT = { format: "image/png", quality: 1.0 };
 
-export function defaultModel() {
-  return "medium";
-}
-
 /**
- * A real WebGPU capability probe, not just `"gpu" in navigator`.
- * Tries to obtain an adapter; only returns "gpu" if that actually succeeds in
- * a secure context. Returns "cpu" otherwise (callers must not depend on GPU).
+ * Model tiers exposed by @imgly (ISNet variants):
+ *   large  → "isnet"          full-precision FP32
+ *   medium → "isnet_fp16"     half precision (default)
+ *   small  → "isnet_quint8"   8-bit quantized
  */
-export async function probeDevice() {
-  try {
-    if (typeof navigator === "undefined" || !("gpu" in navigator)) return "cpu";
-    if (!window.isSecureContext) return "cpu";
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) return "cpu";
-    return "gpu";
-  } catch {
-    return "cpu";
-  }
+export const MODEL_TIERS = {
+  large: { label: "Best", hint: "Full-precision ISNet — finest edges, largest download" },
+  medium: { label: "Balanced", hint: "FP16 ISNet — recommended for most devices" },
+  small: { label: "Fast", hint: "Quantized ISNet — quickest, smallest download" },
+};
+
+export function isModelTier(value) {
+  return typeof value === "string" && value in MODEL_TIERS;
 }
 
 /** Synchronous hint: used only as an initial guess before `probeDevice`. */
 export function defaultDevice() {
   return typeof navigator !== "undefined" && "gpu" in navigator ? "gpu" : "cpu";
+}
+
+/**
+ * Device-aware default tier. WebGPU devices comfortably run the balanced FP16
+ * model; CPU-only, low-memory devices default to the quantized model so the
+ * first run stays responsive. The user can always override in the toolbar.
+ */
+export function defaultModel(device = defaultDevice()) {
+  if (device === "cpu") {
+    const mem = typeof navigator !== "undefined" ? navigator.deviceMemory || 8 : 8;
+    if (mem > 0 && mem < 4) return "small";
+    return "medium";
+  }
+  return "medium";
+}
+
+/**
+ * A real WebGPU capability probe, not just `"gpu" in navigator`. Tries to
+ * obtain an adapter; only returns "gpu" if that actually succeeds in a secure
+ * context. Memoized per tab — one adapter request, ever.
+ */
+export async function probeDevice() {
+  if (deviceProbe) return deviceProbe;
+  deviceProbe = (async () => {
+    try {
+      if (typeof navigator === "undefined" || !("gpu" in navigator)) return "cpu";
+      if (typeof window === "undefined" || !window.isSecureContext) return "cpu";
+      const adapter = await navigator.gpu.requestAdapter();
+      return adapter ? "gpu" : "cpu";
+    } catch {
+      return "cpu";
+    }
+  })();
+  deviceProbe.catch(() => {
+    deviceProbe = null; // allow a retry if the probe itself blew up
+  });
+  return deviceProbe;
 }
 
 export function loadEngine() {
@@ -72,8 +105,8 @@ function setModelStatus(status) {
  */
 function makeConfig(model, device, output, onProgress) {
   return {
-    model,
-    device,
+    model: isModelTier(model) ? model : "medium",
+    device: device === "gpu" ? "gpu" : "cpu",
     output: output || CANONICAL_OUTPUT,
     progress: typeof onProgress === "function" ? onProgress : undefined,
   };
@@ -86,7 +119,7 @@ function makeConfig(model, device, output, onProgress) {
  */
 export function preload(options = {}) {
   if (preloadPromise) return preloadPromise;
-  const model = options.model || defaultModel();
+  const model = isModelTier(options.model) ? options.model : defaultModel(options.device);
   const device = options.device || defaultDevice();
   setModelStatus("loading");
   preloadPromise = (async () => {
@@ -112,8 +145,8 @@ export function preload(options = {}) {
 export async function segmentForeground(blob, options = {}) {
   const resolvedDevice = await probeDevice();
   const engine = await loadEngine();
-  const model = options.model || defaultModel();
-  const device = options.device || resolvedDevice;
+  const model = isModelTier(options.model) ? options.model : defaultModel(resolvedDevice);
+  const device = options.device === "gpu" || options.device === "cpu" ? options.device : resolvedDevice;
   const config = makeConfig(model, device, options.output, options.onProgress);
 
   activeBackend = device;
