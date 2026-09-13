@@ -7,6 +7,69 @@ let activeBackend = "unknown"; // "gpu" | "cpu" | "unknown"
 let deviceProbe = null; // memoized WebGPU probe result
 const statusListeners = new Set();
 
+/** Clear the service-worker–cached copies of the model/runtime assets so a
+ *  stale or corrupt SW cache can't poison the next load. Best-effort / no-op
+ *  when SW isn't controlling the page. */
+function clearModelCache() {
+  if (typeof self === "undefined" || !self.caches) return;
+  const cacheNames = [
+    `pngcut-model-v1`,
+    `pngcut-model-v1-old`,
+    `pngcut-model`,
+    `imgly-model`,
+    `imgly-resources`,
+  ];
+  cacheNames.forEach((name) => caches.delete(name));
+  // Also nudge the SW to skipWaiting so a fresh install sees the new policy.
+  if (typeof self !== "undefined" && typeof self.skipWaiting === "function") {
+    self.skipWaiting().catch(() => {});
+  }
+}
+
+/** Retry policy for model loads that fail (network hiccup, SW serving a corrupt
+ *  cache, transient WebGPU init failure, …). Backing off here avoids hammering
+ *  the CDN / the browser's own connection pool on repeated quick retries.
+ */
+const RETRY_POLICY = {
+  maxAttempts: 4,
+  baseDelayMs: 1200,
+  backoff: 2,
+  jitter: 0.25,
+};
+
+/** Bounded exponential backoff with small jitter so concurrent retries don't
+ *  all land on the CDN at the exact same instant. */
+function backoffDelay(attempt) {
+  const factor = Math.pow(RETRY_POLICY.backoff, attempt);
+  const base = RETRY_POLICY.baseDelayMs * factor;
+  const jitter = base * RETRY_POLICY.jitter * (Math.random() * 2 - 1);
+  return Math.round(base + jitter);
+}
+
+/** Retry `fn` up to `RETRY_POLICY.maxAttempts` times with exponential backoff.
+ *  On each failure we clear the SW model cache first so a stale/corrupt cache
+ *  is not re-served on the next attempt. Returns the first successful result or
+ *  throws the final error. */
+async function withRetry(fn) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < RETRY_POLICY.maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      console.warn(
+        `Model load attempt ${attempt + 1}/${RETRY_POLICY.maxAttempts} failed.`,
+        err
+      );
+      // Don't sleep after the last attempt — throw immediately.
+      if (attempt + 1 >= RETRY_POLICY.maxAttempts) break;
+      clearModelCache();
+      await new Promise((r) => setTimeout(r, backoffDelay(attempt)));
+    }
+  }
+  throw lastErr;
+}
+
 // Every call shares this canonical output shape so all code paths (image
 // editor, video frames, bulk jobs) produce the same memoisation key.
 const CANONICAL_OUTPUT = { format: "image/png", quality: 1.0 };
@@ -114,27 +177,51 @@ function makeConfig(model, device, output, onProgress) {
 
 /**
  * Load the model + create the inference session now, in the background.
+ *
  * Single-flight: calling it again while loading returns the same promise, and
  * once ready the session stays resident in memory for the whole tab.
+ *
+ * Retries: if the load fails (network hiccup, SW serving a stale/corrupt model
+ * cache, transient WebGPU init failure, …) we retry up to
+ * `RETRY_POLICY.maxAttempts` times with exponential backoff. Each retry clears
+ * the service-worker model cache first so a stale cache isn't re-served.
+ *
+ * In-flight persistence: the (possibly retrying) promise is kept as
+ * `preloadPromise` while it is still settling, so concurrent calls that arrive
+ * during a retry see the same promise instead of starting a brand-new load.
+ * Once the promise settles to an *error* we clear it so the next call starts
+ * fresh.
  */
 export function preload(options = {}) {
-  if (preloadPromise) return preloadPromise;
   const model = isModelTier(options.model) ? options.model : defaultModel(options.device);
   const device = options.device || defaultDevice();
+  if (preloadPromise) return preloadPromise;
+
   setModelStatus("loading");
   preloadPromise = (async () => {
     const engine = await loadEngine();
-    await engine.preload(makeConfig(model, device));
+    await withRetry(() => engine.preload(makeConfig(model, device)));
     activeBackend = device;
     setModelStatus("ready");
     return true;
   })().catch((err) => {
-    console.warn("Model preload failed; it will retry automatically on first use.", err);
     preloadPromise = null;
     setModelStatus("error");
     throw err;
   });
   return preloadPromise;
+}
+
+/**
+ * Force a fresh model load on next use. Clears any in-flight promise and the
+ * service-worker–cached model assets so the next `preload`/`segmentForeground`
+ * call starts from a clean state. Primarily intended as a user-facing "retry"
+ * path after a persistent failure.
+ */
+export function resetModel() {
+  preloadPromise = null;
+  clearModelCache();
+  setModelStatus("idle");
 }
 
 /**
@@ -151,10 +238,14 @@ export async function segmentForeground(blob, options = {}) {
 
   activeBackend = device;
 
-  // Warm the canonical session (if a cold start) so this very call and every
-  // later one reuse the exact same loaded model — no re-downloads, no re-init.
-  if (!preloadPromise && modelStatus !== "ready") {
-    preload({ model, device });
+  // Ensure the canonical session is loaded before we try to run inference on
+  // it. If a load is already in flight (preloadPromise) we join it; otherwise
+  // we start one ourselves and *wait* for it before calling segmentForeground —
+  // the old code called preload() and then immediately ran inference, which
+  // races on a cold start and produces the "model failed to load" error that
+  // also fails to recover on retry.
+  if (modelStatus !== "ready") {
+    await preload({ model, device });
   }
   try {
     return await engine.segmentForeground(blob, config);
