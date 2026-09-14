@@ -12,7 +12,7 @@
  *  - Analytics: untouched (always network, never cached).
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL_CACHE = `pngcut-shell-${VERSION}`;
 const ASSET_CACHE = `pngcut-assets-${VERSION}`;
 const MODEL_CACHE = `pngcut-model-${VERSION}`;
@@ -24,6 +24,10 @@ const PRECACHE_URLS = [
   "/favicon.svg",
   "/privacy.html",
   "/404.html",
+  // samples are tiny (~35 KB each) — precached so "Try a sample" works offline
+  "/samples/portrait.jpg",
+  "/samples/product.jpg",
+  "/samples/animal.jpg",
 ];
 
 self.addEventListener("install", (event) => {

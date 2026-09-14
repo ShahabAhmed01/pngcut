@@ -414,6 +414,9 @@ input[type="color"]::-webkit-color-swatch { border-radius: 7px; border: 1px soli
 }
 .model-chip.ready { color: #3ddc97; border-color: rgba(61, 220, 151, 0.35); }
 .model-chip.ready::before { background: #3ddc97; animation: none; }
+.model-chip.error { color: var(--accent); border-color: rgba(255, 92, 122, 0.45); cursor: pointer; }
+.model-chip.error::before { background: var(--accent); animation: chip-pulse 1.2s ease-in-out infinite; }
+.model-chip.error:hover { border-color: var(--accent); }
 @keyframes chip-pulse {
   0%, 100% { opacity: 0.35; }
   50% { opacity: 1; }

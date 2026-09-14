@@ -46,6 +46,13 @@ export function isVideoFile(file) {
   return !!file && VIDEO_TYPES.has((file.type || "").toLowerCase());
 }
 
+/** MIME-less video files (e.g. .mkv) are common — sniff by extension too. */
+export function looksLikeVideo(file) {
+  if (!file) return false;
+  if (isVideoFile(file) || /^video\//i.test(file.type || "")) return true;
+  return /\.(mp4|m4v|webm|mov|mkv|ogv)$/i.test(file.name || "");
+}
+
 /** SVG is rejected by default: it can carry behavior + external references. */
 export function isSvgFile(file) {
   return !!file && /^image\/svg/i.test(file.type || "") || !!file && /\.svg$/i.test(file.name || "");
@@ -124,7 +131,7 @@ export function validateImageFile(file, policy = IMAGE_POLICY, dims = null) {
  */
 export function validateVideoFile(file, policy = VIDEO_POLICY, meta = null) {
   if (!file) return fail(ERROR_CODES.MISSING_FILE, "No file was provided.");
-  if (!isVideoFile(file) && !/^video\//i.test(file.type || "")) {
+  if (!looksLikeVideo(file)) {
     return fail(
       ERROR_CODES.UNSUPPORTED_TYPE,
       "PNGCut couldn't identify this file as a video. Use MP4/H.264 or WebM/VP8/VP9."

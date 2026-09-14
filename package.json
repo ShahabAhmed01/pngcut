@@ -6,7 +6,7 @@
   "description": "Free, in-browser background remover. No signup, no upload-based processing.",
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "dev": "vite",

@@ -1,10 +1,5 @@
 /** Canvas + image helpers */
 
-/** Load an ImageBitmap from a File/Blob. */
-export function loadBitmap(blob) {
-  return createImageBitmap(blob);
-}
-
 /** Load an HTMLImageElement from a File/Blob via object URL. */
 export function loadImage(blob) {
   return new Promise((resolve, reject) => {
@@ -29,17 +24,6 @@ export function sizeOf(image) {
     return { width: image.width, height: image.height };
   }
   return { width: image.naturalWidth || image.width, height: image.naturalHeight || image.height };
-}
-
-/** Draw an image onto a canvas at 1:1 pixel size. Returns the canvas. */
-export function toCanvas(image) {
-  const { width, height } = sizeOf(image);
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(image, 0, 0, width, height);
-  return canvas;
 }
 
 /**
@@ -75,11 +59,6 @@ export function canvasToBlob(canvas, type = "image/png", quality) {
       resolve(new Blob([arr], { type }));
     }
   });
-}
-
-/** Get a Blob URL for a canvas. */
-export function canvasToBlobURL(canvas, type = "image/png", quality) {
-  return canvasToBlob(canvas, type, quality).then((blob) => URL.createObjectURL(blob));
 }
 
 /** Format a byte count as human-readable. */

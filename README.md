@@ -109,7 +109,6 @@ src/
   engine.js      inference engine adapter (WebGPU/CPU probe + fallback, model tiers)
   editor.js      full-resolution source + mask + brush/zoom/compare (cached compositing)
   background.js  background rendering (color/gradient/image/blur)
-  compositor.js  foreground/mask compositing
   refine.js      mask post-processing (median/box-blur/contrast/threshold on alpha)
   zip.js         dependency-free STORE ZIP writer (CRC-32, zip-slip safe)
   utils.js       canvas/image/blob + memory helpers
@@ -129,7 +128,7 @@ See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for full license details.
 
 ## Getting started
 
-Requirements: Node.js 18+.
+Requirements: Node.js 20.19+ (Vite 7 requires it).
 
 ```bash
 git clone https://github.com/ShahabAhmed01/pngcut.git pngcut

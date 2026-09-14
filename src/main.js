@@ -8,7 +8,7 @@ import * as engine from "./engine.js";
 import { initBulk } from "./bulk.js";
 import { initVideo } from "./video.js";
 import { loadImage, downloadBlob, clamp, formatBytes, toCanvasMax, canvasToBlob, supportsAvifExport } from "./utils.js";
-import { validateImageFile, isSvgFile, sanitizeFilename } from "./validate.js";
+import { validateImageFile, isSvgFile, sanitizeFilename, looksLikeVideo } from "./validate.js";
 import { classifyError, describeError } from "./errors.js";
 import { IMAGE_POLICY, EXPORT_FORMATS } from "./config.js";
 import { REFINE_PRESETS } from "./refine.js";
@@ -167,6 +167,8 @@ function setTool(tool) {
   });
   qs("#brush-section").classList.toggle("hidden", !(tool === "erase" || tool === "restore"));
   qs("#bg-section").classList.toggle("hidden", tool !== "bg");
+  // The custom color picker row is part of the bg panel — visible only there.
+  qs("#color-row").classList.toggle("hidden", tool !== "bg");
   qs("#feather-row").classList.toggle("hidden", tool === "bg" || tool === "compare");
   if (tool === "compare") {
     state.editor.setCompare(true, 0.5);
@@ -282,7 +284,7 @@ function acceptFile(file) {
     showToast("SVG files aren't supported for background removal. Use PNG, JPEG, WebP, AVIF or BMP.");
     return;
   }
-  if (/^video\//.test(file.type || "")) {
+  if (looksLikeVideo(file)) {
     if (videoFlow.setFile(file)) showView("video");
     return;
   }
@@ -298,7 +300,7 @@ function acceptFile(file) {
 function acceptFiles(files) {
   const list = Array.from(files || []).filter(Boolean);
   if (!list.length) return;
-  const videos = list.filter((f) => /^video\//.test(f.type || ""));
+  const videos = list.filter(looksLikeVideo);
   const images = list.filter(
     (f) => /^image\//.test(f.type || "") && !/^image\/svg/.test(f.type) && !/\.svg$/i.test(f.name || "")
   );
@@ -330,6 +332,9 @@ function acceptFiles(files) {
 // ---------------------------------------------------------------------------
 function applyColor(c) {
   state.editor.setBackground({ type: "color", color: c });
+  // Keep the Color option chip in sync with the picked color.
+  const chip = qs("#bg-color-chip");
+  if (chip) chip.style.background = c;
 }
 
 function buildGradientSwatches() {
@@ -357,13 +362,13 @@ async function encodeResult() {
   const quality = Number(el.qualityRange.value);
   const transparent = el.transparentToggle.checked && format !== "jpeg";
 
-  // When transparent is requested and supported, export without any background.
-  // Otherwise bake in the current background (or white when transparent+JPEG).
-  const includeBg = !transparent;
-  const result = state.editor.renderFull(
-    state.editor.background.type === "transparent" ? "#ffffff" : undefined,
-    includeBg
-  );
+  // Bake in the chosen background (color/gradient/image/blur) whenever one is
+  // active. Only when the editor background is "transparent" does the toggle
+  // decide: unchecked (or JPEG) flattens to `onTransparent` (white); checked
+  // keeps real alpha for formats that support it.
+  const bgIsTransparent = state.editor.background.type === "transparent";
+  const includeBg = !bgIsTransparent || !transparent;
+  const result = state.editor.renderFull("#ffffff", includeBg);
 
   const fmt = EXPORT_FORMATS[format] || EXPORT_FORMATS.png;
   const mime = fmt.mime;
@@ -441,6 +446,9 @@ function bindViewport() {
     }
 
     if (activeTool === "erase" || activeTool === "restore") {
+      // Only the primary button (or pen contact) paints — middle pans, right
+      // click opens the context menu.
+      if (e.button !== 0) return;
       state.editor.setBrushTool(activeTool);
       const img = state.editor.screenToImage(sx, sy);
       state.editor.beginStroke(img.x, img.y);
@@ -518,7 +526,10 @@ function bindViewport() {
 // Dropzone + paste + samples
 // ---------------------------------------------------------------------------
 function bindUpload() {
-  el.fileInput.addEventListener("change", () => acceptFiles(el.fileInput.files));
+  el.fileInput.addEventListener("change", () => {
+    acceptFiles(el.fileInput.files);
+    el.fileInput.value = ""; // allow re-selecting the same file
+  });
 
   el.dropzone.addEventListener("click", (e) => {
     if (e.target === el.fileInput) return;
@@ -564,7 +575,10 @@ function bindUpload() {
     el.folderInput.value = "";
   });
 
-  el.videoInput.addEventListener("change", () => acceptFile(el.videoInput.files[0]));
+  el.videoInput.addEventListener("change", () => {
+    acceptFile(el.videoInput.files[0]);
+    el.videoInput.value = ""; // allow re-selecting the same file
+  });
 
   // home buttons
   el.editorHome.addEventListener("click", () => showView("hero"));
@@ -888,24 +902,39 @@ function init() {
   // resident for the whole tab: the underlying engine memoises sessions and
   // every code path (image editor, video frames, bulk jobs) shares one canonical
   // config, so it is downloaded and initialized exactly once — never again.
+  let lastModelStatus = "idle";
   engine.onModelStatus((status) => {
     if (!el.modelStatus) return;
+    lastModelStatus = status;
     if (status === "ready") {
       const backend = engine.getActiveBackend();
       el.modelStatus.textContent = backend === "gpu" ? "Model ready · GPU" : "Model ready · CPU";
       el.modelStatus.classList.add("ready");
+      el.modelStatus.classList.remove("error");
       el.modelStatus.hidden = false;
     } else if (status === "loading") {
       el.modelStatus.textContent = "Preparing model…";
-      el.modelStatus.classList.remove("ready");
+      el.modelStatus.classList.remove("ready", "error");
       el.modelStatus.hidden = false;
     } else if (status === "error") {
-      el.modelStatus.textContent = "Model load failed — will retry on use";
+      el.modelStatus.textContent = "Model load failed — click to retry";
       el.modelStatus.classList.remove("ready");
+      el.modelStatus.classList.add("error");
       el.modelStatus.hidden = false;
     } else {
       el.modelStatus.hidden = true;
     }
+  });
+
+  // Clicking the chip after a failed load forces a clean retry: the in-flight
+  // promise and any poisoned service-worker model cache are dropped first.
+  el.modelStatus?.addEventListener("click", () => {
+    if (lastModelStatus !== "error") return;
+    engine.resetModel();
+    showToast("Retrying model load…");
+    engine.preload({ model: resolveModel(), device: state.device }).catch(() => {
+      /* the status chip already reflects the failure */
+    });
   });
 
   // Prefetch the model only in the background, and only when it is unlikely to

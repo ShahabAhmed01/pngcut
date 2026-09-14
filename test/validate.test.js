@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeFilename, validateImageFile, validateVideoFile, ERROR_CODES } from "../src/validate.js";
+import { sanitizeFilename, validateImageFile, validateVideoFile, looksLikeVideo, ERROR_CODES } from "../src/validate.js";
 
 function file(name, type, size = 1024) {
   return { name, type, size };
@@ -74,6 +74,27 @@ describe("validateImageFile", () => {
   });
 });
 
+describe("looksLikeVideo", () => {
+  it("accepts video MIME types", () => {
+    expect(looksLikeVideo(file("v", "video/mp4"))).toBe(true);
+    expect(looksLikeVideo(file("v", "video/webm"))).toBe(true);
+    expect(looksLikeVideo(file("v", "video/x-matroska"))).toBe(true);
+  });
+  it("sniffs video extensions when MIME is empty", () => {
+    expect(looksLikeVideo(file("clip.mkv", ""))).toBe(true);
+    expect(looksLikeVideo(file("clip.mov", ""))).toBe(true);
+    expect(looksLikeVideo(file("clip.webm", ""))).toBe(true);
+    expect(looksLikeVideo(file("clip.MP4", ""))).toBe(true);
+  });
+  it("rejects images and audio-like extensions", () => {
+    expect(looksLikeVideo(file("photo.png", "image/png"))).toBe(false);
+    expect(looksLikeVideo(file("song.ogg", "audio/ogg"))).toBe(false);
+    expect(looksLikeVideo(file("song.mp3", ""))).toBe(false);
+    expect(looksLikeVideo(file("doc.txt", "text/plain"))).toBe(false);
+    expect(looksLikeVideo(null)).toBe(false);
+  });
+});
+
 describe("validateVideoFile", () => {
   it("accepts an MP4 container", () => {
     const r = validateVideoFile(file("v.mp4", "video/mp4"));
@@ -84,6 +105,11 @@ describe("validateVideoFile", () => {
     const r = validateVideoFile(file("v.mp4", "video/mp4", 300 * 1024 * 1024));
     expect(r.ok).toBe(true);
     expect(r.warnings.some((w) => w.code === "VIDEO_LARGE")).toBe(true);
+  });
+  it("accepts an MKV container with an empty MIME type", () => {
+    const r = validateVideoFile(file("v.mkv", ""));
+    expect(r.ok).toBe(true);
+    expect(r.kind).toBe("video");
   });
   it("rejects non-video files", () => {
     const r = validateVideoFile(file("v.txt", "text/plain"));

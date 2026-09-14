@@ -45,6 +45,11 @@ export function initVideo({ showToast, goHome }) {
     cancelFlag: false,
   };
 
+  // createMediaElementSource is legal only once per element, so the audio rig
+  // is created once and reused across renders (close it never — the element's
+  // audio would be rerouted into a dead context forever).
+  let audioRig = null; // { audioCtx, dest } | null
+
   function pct(p) {
     el.bar.style.width = `${Math.round(clamp(p, 0, 1) * 100)}%`;
   }
@@ -315,15 +320,18 @@ export function initVideo({ showToast, goHome }) {
     }
 
     const stream = out.captureStream(fps);
-    let audioCtx = null;
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (AC) {
-        audioCtx = new AC();
-        const srcNode = audioCtx.createMediaElementSource(el.video);
-        const dest = audioCtx.createMediaStreamDestination();
-        srcNode.connect(dest);
-        const track = dest.stream.getAudioTracks()[0];
+        if (!audioRig) {
+          const audioCtx = new AC();
+          const srcNode = audioCtx.createMediaElementSource(el.video);
+          const dest = audioCtx.createMediaStreamDestination();
+          srcNode.connect(dest);
+          audioRig = { audioCtx, dest };
+        }
+        audioRig.audioCtx.resume().catch(() => {});
+        const track = audioRig.dest.stream.getAudioTracks()[0];
         if (track) stream.addTrack(track);
       }
     } catch (e) {
@@ -365,9 +373,9 @@ export function initVideo({ showToast, goHome }) {
       }
       stopped.then(() => {
         try {
-          if (audioCtx) audioCtx.close();
+          if (audioRig) audioRig.audioCtx.suspend();
         } catch {
-          /* audio context may already be closed */
+          /* audio context may already be suspended */
         }
         if (save && chunks.length) {
           const blob = new Blob(chunks, { type: mime.split(";")[0] });
