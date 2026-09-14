@@ -1,4 +1,9 @@
 import { defineConfig } from "vite";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Cross-origin isolation unlocks multi-threaded WASM (SharedArrayBuffer),
 // which dramatically speeds up onnxruntime-web inference.
@@ -32,6 +37,23 @@ function cleanUrlMiddleware(server) {
   });
 }
 
+/** Vite plugin to inject version into service worker at build time. */
+function swVersionPlugin() {
+  return {
+    name: "pngcut-sw-version",
+    writeBundle() {
+      const pkgPath = path.resolve(__dirname, "package.json");
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+      const version = pkg.version;
+
+      const swPath = path.resolve(__dirname, "public/sw.js");
+      let swContent = fs.readFileSync(swPath, "utf-8");
+      swContent = swContent.replace(/const VERSION = "v\d+";/, `const VERSION = "v${version}";`);
+      fs.writeFileSync(swPath, swContent);
+    },
+  };
+}
+
 export default defineConfig({
   build: {
     target: "es2020",
@@ -50,5 +72,6 @@ export default defineConfig({
       configureServer: cleanUrlMiddleware,
       configurePreviewServer: cleanUrlMiddleware,
     },
+    swVersionPlugin(),
   ],
 });

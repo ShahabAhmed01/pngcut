@@ -39,7 +39,7 @@ the precise wording.
 - Undo / redo (memory-bounded)
 - **Feather edges** for softer cutouts
 - **Compare** slider (original vs. result)
-- Zoom & pan, fit-to-screen, **paste an image straight from the clipboard**
+- Zoom & pan, fit-to-screen (`0`), **paste an image straight from the clipboard**
 - Background replacement: transparent, solid color, gradient, custom image, or
   blurred original
 - Export as **PNG (transparent)**, **WebP (transparent)**, **AVIF (transparent,
@@ -48,9 +48,12 @@ the precise wording.
 - **Installable PWA** — add to home screen; after the first visit the app and
   AI model are cached, so background removal keeps working **offline**
 - Sample images to try instantly
-- Keyboard shortcuts: `?` lists them all — `B` erase, `R` restore, `C` compare,
+- **Settings reset** — one-click restore all toolbar settings to defaults
+- **Persistent preferences** — model tier and refinement preset remembered across sessions
+- **Keyboard shortcuts**: `?` lists them all — `B` erase, `R` restore, `C` compare,
   `G` background, `Ctrl+Z` undo, `Ctrl+Shift+Z`/`Ctrl+Y` redo, `Ctrl+P` copy,
-  `[`/`]` brush size, `Space` + drag to pan
+  `Ctrl+S` download, `[`/`]` brush size, `0` fit to screen, `T` toggle transparent,
+  `F` toggle feather, `Space` + drag to pan
 
 ## Known limitations
 
@@ -103,18 +106,29 @@ Vanilla JS + Canvas 2D, organized into small cohesive modules:
 
 ```text
 src/
-  config.js      policy constants + supported formats (single source of truth)
-  validate.js    media validation + filename sanitization
-  errors.js      structured error codes → actionable user messages
-  engine.js      inference engine adapter (WebGPU/CPU probe + fallback, model tiers)
-  editor.js      full-resolution source + mask + brush/zoom/compare (cached compositing)
-  background.js  background rendering (color/gradient/image/blur)
-  refine.js      mask post-processing (median/box-blur/contrast/threshold on alpha)
-  zip.js         dependency-free STORE ZIP writer (CRC-32, zip-slip safe)
-  utils.js       canvas/image/blob + memory helpers
-  bulk.js        bulk queue + single-ZIP download
-  video.js       video analyze + render
-  main.js        app controller + wiring
+  config.js         policy constants + supported formats (single source of truth)
+  validate.js       media validation + filename sanitization
+  errors.js         structured error codes → actionable user messages
+  engine.js         inference engine adapter (WebGPU/CPU probe + fallback, model tiers)
+  editor.js         full-resolution source + mask + brush/zoom/compare (cached compositing)
+  background.js     background rendering (color/gradient/image/blur)
+  refine.js         mask post-processing (median/box-blur/contrast/threshold on alpha)
+  zip.js            dependency-free STORE ZIP writer (CRC-32, zip-slip safe)
+  utils.js          canvas/image/blob + memory helpers
+  bulk.js           bulk queue + single-ZIP download
+  video.js          video analyze + render
+  main.js           app controller (thin, delegates to modules)
+  upload.js         file upload handling (dropzone, paste, pickers, samples)
+  export.js         encode/download/copy result
+  views.js          view switching (hero/editor/bulk/video)
+  tools.js          tool selection (erase/restore/compare/bg)
+  background-ui.js  background controls (color/gradient/image/blur)
+  viewport.js       pointer interactions (pan/zoom/brush/compare)
+  controls.js       control binding (buttons, sliders, selects)
+  shortcuts.js      keyboard shortcuts overlay & global hotkeys
+  prefs.js          preferences persistence (model tier, refinement)
+  constants.js      shared constants (no magic numbers)
+  init.js           app initialization (analytics, SW, model preload)
 ```
 
 ## Stack
@@ -138,6 +152,7 @@ npm run dev       # start dev server at http://localhost:5173
 npm run build     # production build -> dist/
 npm run preview   # preview production build
 npm test          # run unit tests
+npm run lint      # run ESLint
 ```
 
 ## Deploying to Vercel
@@ -181,6 +196,17 @@ By default the model + WASM files are fetched from IMG.LY's CDN. To self-host:
 
 Only redistribute these assets if IMG.LY's license permits (see
 `THIRD_PARTY_NOTICES.md`).
+
+### Service Worker & offline support
+
+The app includes a production-grade Service Worker (`public/sw.js`) that provides:
+- **Offline support** — after first visit, the app and AI model work without network
+- **Stale-while-revalidate** for model assets — instant cached loads, background updates
+- **Network-first for navigations** — deploys go live immediately
+- **Cache-first for hashed assets** — immutable content-addressed files
+- **Auto-versioning** — SW version injected at build time from `package.json`
+
+See `vite.config.js` for the version injection plugin.
 
 ## Licensing note
 

@@ -86,3 +86,13 @@ export function pickerAccept(mimes) {
 
 export const IMAGE_ACCEPT = pickerAccept(IMAGE_INPUT_FORMATS.map((f) => f.mime));
 export const VIDEO_ACCEPT = pickerAccept(VIDEO_INPUT_FORMATS.map((f) => f.mime));
+
+/** Gradient presets for background. */
+export const GRADIENTS = [
+  ["#7c3aed", "#06b6d4"],
+  ["#f43f5e", "#fb923c"],
+  ["#0ea5e9", "#22c55e"],
+  ["#8b5cf6", "#ec4899"],
+  ["#111827", "#6b7280"],
+  ["#f59e0b", "#ef4444"],
+];

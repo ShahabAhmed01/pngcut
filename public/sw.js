@@ -12,7 +12,7 @@
  *  - Analytics: untouched (always network, never cached).
  */
 
-const VERSION = "v2";
+const VERSION = "v1.1.0";
 const SHELL_CACHE = `pngcut-shell-${VERSION}`;
 const ASSET_CACHE = `pngcut-assets-${VERSION}`;
 const MODEL_CACHE = `pngcut-model-${VERSION}`;
@@ -35,7 +35,9 @@ self.addEventListener("install", (event) => {
     (async () => {
       const cache = await caches.open(SHELL_CACHE);
       // Precache best-effort: a single failure must not break the install.
-      await Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(new Request(url, { cache: "reload" }))));
+      await Promise.allSettled(
+        PRECACHE_URLS.map((url) => cache.add(new Request(url, { cache: "reload" })))
+      );
       await self.skipWaiting();
     })()
   );
@@ -62,7 +64,9 @@ async function staleWhileRevalidate(request, cacheName) {
   const cached = await cache.match(request);
   const network = fetch(request)
     .then((response) => {
-      if (response && (response.ok || response.type === "opaque")) cache.put(request, response.clone());
+      if (response && (response.ok || response.type === "opaque")) {
+        cache.put(request, response.clone());
+      }
       return response;
     })
     .catch(() => undefined);
