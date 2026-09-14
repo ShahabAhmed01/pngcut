@@ -689,7 +689,7 @@ function bindControls() {
 
   el.qualityRange.addEventListener("input", () => {
     state.quality = Number(el.qualityRange.value);
-    el.qualityVal.textContent = `${Math.round(el.qualityRange.value * 100)}%`;
+    el.qualityVal.textContent = `${el.qualityRange.value}%`;
   });
 
   el.formatSelect.addEventListener("change", () => {
@@ -875,7 +875,7 @@ function init() {
   state.editor.layout();
   el.brushSizeVal.textContent = `${el.brushSize.value}px`;
   el.featherVal.textContent = `${el.feather.value}px`;
-  el.qualityVal.textContent = `${Math.round(el.qualityRange.value * 100)}%`;
+  el.qualityVal.textContent = `${el.qualityRange.value}%`;
 
   // warm model pick: probe WebGPU properly, fall back to CPU otherwise
   engine.probeDevice().then((device) => {

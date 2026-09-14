@@ -12,6 +12,7 @@
  */
 
 import { IMAGE_POLICY, VIDEO_POLICY } from "./config.js";
+import { formatBytes } from "./utils.js";
 
 export const ERROR_CODES = {
   UNSUPPORTED_TYPE: "UNSUPPORTED_TYPE",
@@ -186,11 +187,4 @@ export function sanitizeFilename(name, fallback = "image") {
   // cap length conservatively for cross-filesystem safety
   if (out.length > 120) out = out.slice(0, 120).trim();
   return out || fallback;
-}
-
-function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }

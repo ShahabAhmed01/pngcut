@@ -154,10 +154,6 @@ export function initVideo({ showToast, goHome }) {
     });
   }
 
-  function canvasToJpeg(canvas, quality = 0.92) {
-    return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", quality));
-  }
-
   /** Pass 1 — analyze every frame and cache alpha masks. */
   async function analyze() {
     if (!v.file) return;
@@ -211,8 +207,7 @@ export function initVideo({ showToast, goHome }) {
         }
         await seekTo(video, i / fps);
         wctx.drawImage(video, 0, 0, mw, mh);
-        const blob = await canvasToJpeg(work, 0.92);
-        const maskBlob = await engine.segmentForeground(blob, { model });
+        const maskBlob = await engine.segmentForeground(work, { model });
         const bmp = await createImageBitmap(maskBlob);
         const md = document.createElement("canvas");
         md.width = mw;
@@ -442,10 +437,6 @@ export function initVideo({ showToast, goHome }) {
   el.render.addEventListener("click", renderAndDownload);
   el.cancel.addEventListener("click", () => {
     v.cancelFlag = true;
-    if (v._cancelFn) {
-      v._cancelFn();
-      v._cancelFn = null;
-    }
   });
   el.bg.addEventListener("change", () => {
     el.bgColor.classList.toggle("hidden", el.bg.value !== "color");

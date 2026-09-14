@@ -9,7 +9,7 @@
 import * as engine from "./engine.js";
 import { loadImage, toCanvasMax, canvasToBlob, downloadBlob, formatBytes } from "./utils.js";
 import { validateImageFile, isSvgFile, sanitizeFilename } from "./validate.js";
-import { BULK_POLICY, ZIP_POLICY } from "./config.js";
+import { BULK_POLICY, IMAGE_POLICY, ZIP_POLICY } from "./config.js";
 import { createZipBlob } from "./zip.js";
 
 const MAX_ITEMS = BULK_POLICY.maxItems;
@@ -143,7 +143,7 @@ export function initBulk({ showToast, goHome }) {
     refreshCard(item);
     try {
       const img = await loadImage(item.file);
-      const source = toCanvasMax(img, 4000);
+      const source = toCanvasMax(img, IMAGE_POLICY.maxDimension);
       // Model tier resolves on-device (engine.defaultModel) unless overridden.
       const maskBlob = await engine.segmentForeground(item.file, {});
       const maskImg = await loadImage(maskBlob);
