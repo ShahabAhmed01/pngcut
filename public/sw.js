@@ -12,7 +12,7 @@
  *  - Analytics: untouched (always network, never cached).
  */
 
-const VERSION = "v1.1.0";
+const VERSION = "v1.1.1";
 const SHELL_CACHE = `pngcut-shell-${VERSION}`;
 const ASSET_CACHE = `pngcut-assets-${VERSION}`;
 const MODEL_CACHE = `pngcut-model-${VERSION}`;

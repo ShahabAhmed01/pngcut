@@ -34,6 +34,27 @@ describe("error mapping", () => {
   it("classifies GPU errors as webgpu-unavailable", () => {
     expect(classifyError(new Error("WebGPU adapter request failed"))).toBe(ErrorCode.WEBGPU_UNAVAILABLE);
   });
+  it("classifies CSP/eval failures as a model-init problem, not unknown", () => {
+    const evalErr = new Error(
+      "Evaluating a string as JavaScript violates the following Content Security " +
+        "Policy directive because 'unsafe-eval' is not an allowed source of script."
+    );
+    expect(evalErr.name).not.toBe("EvalError"); // message alone is enough
+    expect(classifyError(evalErr)).toBe(ErrorCode.MODEL_INIT_FAILED);
+
+    const blocked = new Error(
+      "Refused to load the script 'blob:https://pngcut.vercel.app/abc' because it " +
+        "violates the following Content Security Policy directive: \"script-src 'self'\"."
+    );
+    expect(classifyError(blocked)).toBe(ErrorCode.MODEL_INIT_FAILED);
+  });
+  it("keeps describing every classified code with actionable text", () => {
+    for (const code of Object.values(ErrorCode)) {
+      const d = describeError(code);
+      expect(d.title).toBeTruthy();
+      expect(d.body).toBeTruthy();
+    }
+  });
 });
 
 describe("policy config", () => {

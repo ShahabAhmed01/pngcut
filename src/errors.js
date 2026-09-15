@@ -24,7 +24,7 @@ const MESSAGES = {
   },
   [ErrorCode.MODEL_INIT_FAILED]: {
     title: "The AI model failed to start",
-    body: "PNGCut couldn't initialize the background-removal model in this browser. Try reloading the page or a Chromium-based browser.",
+    body: "PNGCut couldn't initialize the background-removal model in this browser. Try reloading the page or a Chromium-based browser. Self-hosting? Check that your Content-Security-Policy allows WebAssembly and blob: scripts.",
   },
   [ErrorCode.WEBGPU_UNAVAILABLE]: {
     title: "GPU acceleration is unavailable",
@@ -76,6 +76,13 @@ export function describeError(code, fallback = null) {
 export function classifyError(err) {
   const msg = String((err && err.message) || err || "").toLowerCase();
   if (/(out of memory|memory limit|rangeerror)/.test(msg)) return ErrorCode.OUT_OF_MEMORY;
+  // Dynamic string evaluation blocked by CSP (any policy without
+  // 'unsafe-eval'). Surfaced by JIT-style code generators in the inference
+  // stack; PNGCut patches the one we ship, so this usually means a
+  // self-hosted CSP regression rather than an end-user problem.
+  if (/(evalerror|unsafe-eval|evaluating a string|content security policy|refused to (load|execute))/.test(msg)) {
+    return ErrorCode.MODEL_INIT_FAILED;
+  }
   if (/decod|could not (load|open|read)|invalid image|cannot render/.test(msg)) {
     return ErrorCode.IMAGE_DECODE_FAILED;
   }
