@@ -1,5 +1,6 @@
 /** Control binding — buttons, sliders, selects. */
 import * as engine from "./engine.js";
+import { ZOOM_DEFAULTS } from "./constants.js";
 
 export function createControlsHandler({ state, el, showToast, setTool, savePrefs, requestRender }) {
   function bindControls() {
@@ -71,15 +72,17 @@ export function createControlsHandler({ state, el, showToast, setTool, savePrefs
     });
 
     el.zoomIn.addEventListener("click", () => {
-      const cx = state.editor._viewportW / 2;
-      const cy = state.editor._viewportH / 2;
-      state.editor.zoom(1.25, cx, cy);
+      const { w, h } = state.editor.viewportSize();
+      const cx = w / 2;
+      const cy = h / 2;
+      state.editor.zoom(ZOOM_DEFAULTS.factor, cx, cy);
       requestRender();
     });
     el.zoomOut.addEventListener("click", () => {
-      const cx = state.editor._viewportW / 2;
-      const cy = state.editor._viewportH / 2;
-      state.editor.zoom(1 / 1.25, cx, cy);
+      const { w, h } = state.editor.viewportSize();
+      const cx = w / 2;
+      const cy = h / 2;
+      state.editor.zoom(1 / ZOOM_DEFAULTS.factor, cx, cy);
       requestRender();
     });
     el.zoomFit.addEventListener("click", () => {

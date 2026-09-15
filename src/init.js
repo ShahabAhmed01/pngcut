@@ -3,7 +3,7 @@ import { inject } from "@vercel/analytics";
 import { injectSpeedInsights } from "@vercel/speed-insights";
 import * as engine from "./engine.js";
 
-export async function initApp({ state, el, buildGradientSwatches, bindUpload, bindControls, bindViewport, bindShortcuts, applyPrefs, addAvifOption, registerServiceWorker, showStatus }) {
+export async function initApp({ state, el, buildGradientSwatches, bindUpload, bindControls, bindViewport, bindShortcuts, applyPrefs, addAvifOption, registerServiceWorker, showStatus, showToast }) {
   inject();
   injectSpeedInsights();
 
@@ -78,9 +78,4 @@ export async function initApp({ state, el, buildGradientSwatches, bindUpload, bi
       setTimeout(warmUp, 800);
     }
   }
-}
-
-function showToast(msg) {
-  // This will be replaced by the actual showToast from main
-  console.log("Toast:", msg);
 }

@@ -57,8 +57,9 @@ export function initBulk({ showToast, goHome }) {
     if (valid.length > take.length) {
       showToast(`Added the first ${take.length} images (limit ${MAX_ITEMS}).`);
     }
+    const newItems = [];
     for (const file of take) {
-      items.push({
+      const item = {
         id: ++seq,
         file,
         name: file.name || `image-${seq}.png`,
@@ -67,9 +68,11 @@ export function initBulk({ showToast, goHome }) {
         thumbURL: URL.createObjectURL(file),
         resultURL: null,
         resultBlob: null,
-      });
+      };
+      items.push(item);
+      newItems.push(item);
     }
-    renderGrid();
+    appendCards(newItems);
     updateBar();
     if (!running) run();
   }
@@ -110,6 +113,13 @@ export function initBulk({ showToast, goHome }) {
     el.grid.innerHTML = items
       .map((item) => `<div class="bulk-card ${item.status}" data-id="${item.id}">${cardHTML(item)}</div>`)
       .join("");
+  }
+
+  function appendCards(newItems) {
+    const html = newItems
+      .map((item) => `<div class="bulk-card ${item.status}" data-id="${item.id}">${cardHTML(item)}</div>`)
+      .join("");
+    el.grid.insertAdjacentHTML("beforeend", html);
   }
 
   function refreshCard(item) {

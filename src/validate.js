@@ -55,7 +55,7 @@ export function looksLikeVideo(file) {
 
 /** SVG is rejected by default: it can carry behavior + external references. */
 export function isSvgFile(file) {
-  return !!file && /^image\/svg/i.test(file.type || "") || !!file && /\.svg$/i.test(file.name || "");
+  return !!file && ( /^image\/svg/i.test(file.type || "") || /\.svg$/i.test(file.name || "") );
 }
 
 function fail(code, userMessage, technicalMessage) {
@@ -153,10 +153,6 @@ export function validateVideoFile(file, policy = VIDEO_POLICY, meta = null) {
         ERROR_CODES.VIDEO_DECODE_FAILED,
         "Your browser couldn't read this video's duration. It may use an unsupported codec or be corrupt."
       );
-    }
-    // Estimate mask storage and surface an early recommendation if it is high.
-    if (meta.width && meta.height && meta.duration) {
-      warnings.push({ key: "meta", width: meta.width, height: meta.height, duration: meta.duration });
     }
   }
   return { ok: true, kind: "video", type: file.type || "video/mp4", sizeBytes: file.size, warnings };

@@ -61,7 +61,8 @@ export function createExportHandler({ state, el, showToast }) {
   }
 
   async function encodeAsPng() {
-    const result = state.editor.renderFull(undefined, false);
+    const includeBg = state.editor.background.type !== "transparent";
+    const result = state.editor.renderFull("#ffffff", includeBg);
     return canvasToBlob(result, "image/png");
   }
 

@@ -70,6 +70,9 @@ export function initVideo({ showToast, goHome }) {
     el.render.classList.add("hidden");
     el.cancel.classList.add("hidden");
     el.start.classList.remove("hidden");
+    // Re-enable settings for the next analysis.
+    el.fps.disabled = false;
+    el.quality.disabled = false;
     showProgress(false);
     pct(0);
   }
@@ -231,12 +234,18 @@ export function initVideo({ showToast, goHome }) {
       pct(1);
       say(`Done — ${total} frames analyzed. Press “Render & download”.`);
       el.render.classList.remove("hidden");
+      // Settings apply to the next analysis; disable after analysis completes.
+      el.fps.disabled = true;
+      el.quality.disabled = true;
     } catch (err) {
       console.error(err);
       showToast("Video analysis failed — try a lower quality setting or a different clip.");
       v.masks = null;
       showProgress(false);
       el.start.classList.remove("hidden");
+      // Re-enable so user can retry with different settings.
+      el.fps.disabled = false;
+      el.quality.disabled = false;
     } finally {
       v.running = false;
       el.cancel.classList.add("hidden");
@@ -361,6 +370,8 @@ export function initVideo({ showToast, goHome }) {
     function finish(save) {
       if (finished) return;
       finished = true;
+      // Clean up the 'ended' listener so canceled renders don't leak it
+      el.video.removeEventListener("ended", onEnded);
       try {
         el.video.pause();
       } catch {

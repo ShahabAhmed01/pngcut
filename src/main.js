@@ -16,6 +16,7 @@ import {
   FEATHER_DEFAULTS,
   QUALITY_DEFAULTS,
   BLUR_DEFAULTS,
+  PROGRESS_STEPS,
   TOAST_DURATION_MS,
 } from "./constants.js";
 
@@ -164,9 +165,9 @@ const upload = createUploadHandler({
 });
 const { bindUpload } = upload;
 
-// Export
+// Export (created before shortcuts so hotkeys share the canonical handler)
 const exportHandler = createExportHandler({ state, el, showToast });
-const { bindExport } = exportHandler;
+const { bindExport, doDownload, doCopy } = exportHandler;
 
 // Background UI
 const backgroundUI = createBackgroundUIHandler({ state, el, showToast, setStatus });
@@ -188,7 +189,14 @@ const controls = createControlsHandler({
 const { bindControls } = controls;
 
 // Shortcuts
-const shortcuts = createShortcutsHandler({ state, el, setTool: tools.setTool, showToast });
+const shortcuts = createShortcutsHandler({
+  state,
+  el,
+  setTool: tools.setTool,
+  showToast,
+  doDownload,
+  doCopy,
+});
 const { bindShortcuts } = shortcuts;
 
 // --- Processing ---
@@ -222,7 +230,11 @@ async function processImage(blob, name) {
         if (key.startsWith("fetch:")) {
           modelTotal = Math.max(modelTotal, total);
           const pct = modelTotal ? Math.min(100, (current / modelTotal) * 100) : 0;
-          updateProgress(pct, `Downloading model… ${Math.round(pct)}%`);
+          // Map fetch into the 0–70 band so the bar never jumps backwards
+          // when compute starts at 70.
+          const band = PROGRESS_STEPS.modelDownloadEnd - PROGRESS_STEPS.modelDownloadStart;
+          const scaled = PROGRESS_STEPS.modelDownloadStart + (pct / 100) * band;
+          updateProgress(scaled, `Downloading model… ${Math.round(pct)}%`);
         } else if (key.startsWith("compute:")) {
           const step = Number(key.split(":")[2] || 0);
           updateProgress(Math.min(99, 70 + (step / 4) * 28), "Analyzing image…");
@@ -292,6 +304,7 @@ initApp({
     });
   },
   showStatus: setStatus,
+  showToast,
 });
 
 // Wire export controls after initApp (needs showToast)

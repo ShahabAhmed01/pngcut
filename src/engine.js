@@ -11,18 +11,20 @@ const statusListeners = new Set();
  *  stale or corrupt SW cache can't poison the next load. Best-effort / no-op
  *  when SW isn't controlling the page. */
 function clearModelCache() {
-  if (typeof self === "undefined" || !self.caches) return;
-  const cacheNames = [
-    `pngcut-model-v1`,
-    `pngcut-model-v1-old`,
-    `pngcut-model`,
-    `imgly-model`,
-    `imgly-resources`,
-  ];
-  cacheNames.forEach((name) => caches.delete(name));
-  // Also nudge the SW to skipWaiting so a fresh install sees the new policy.
-  if (typeof self !== "undefined" && typeof self.skipWaiting === "function") {
-    self.skipWaiting().catch(() => {});
+  if (typeof caches === "undefined") return;
+  // Dynamically find and delete any versioned model caches created by the SW
+  caches.keys()
+    .then((names) =>
+      Promise.all(
+        names
+          .filter((n) => n.startsWith("pngcut-model-") || n.startsWith("imgly-model") || n.startsWith("imgly-resources"))
+          .map((n) => caches.delete(n))
+      )
+    )
+    .catch(() => {});
+  // Nudge the SW to skipWaiting so a fresh install sees the new policy.
+  if (typeof navigator !== "undefined" && navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage("SKIP_WAITING");
   }
 }
 

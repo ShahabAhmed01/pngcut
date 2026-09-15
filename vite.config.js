@@ -41,15 +41,17 @@ function cleanUrlMiddleware(server) {
 function swVersionPlugin() {
   return {
     name: "pngcut-sw-version",
-    writeBundle() {
+    closeBundle() {
       const pkgPath = path.resolve(__dirname, "package.json");
       const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
       const version = pkg.version;
 
-      const swPath = path.resolve(__dirname, "public/sw.js");
-      let swContent = fs.readFileSync(swPath, "utf-8");
-      swContent = swContent.replace(/const VERSION = "v\d+";/, `const VERSION = "v${version}";`);
-      fs.writeFileSync(swPath, swContent);
+      // Target the BUILT file in dist/, NOT the source file in public/
+      const swPath = path.resolve(__dirname, "dist/sw.js");
+      if (!fs.existsSync(swPath)) return;
+      const c = fs.readFileSync(swPath, "utf-8")
+        .replace(/const VERSION = "[^"]+";/, `const VERSION = "v${version}";`);
+      fs.writeFileSync(swPath, c);
     },
   };
 }

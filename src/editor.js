@@ -23,6 +23,7 @@
 import { renderBackground } from "./background.js";
 import { checkerboardPattern, loadImage } from "./utils.js";
 import { REFINE_PRESETS, refineMaskCanvas } from "./refine.js";
+import { IMAGE_POLICY } from "./config.js";
 
 export class Editor {
   constructor() {
@@ -48,7 +49,7 @@ export class Editor {
     // undo stack of mask alpha buffers
     this._undo = [];
     this._redo = [];
-    this._undoBudget = 64 * 1024 * 1024; // 64 MB of alpha bytes across history
+    this._undoBudget = IMAGE_POLICY.undoBudgetBytes;
 
     // cached foreground (source ⊗ mask) + background layer
     this._fgCanvas = null;
@@ -191,6 +192,11 @@ export class Editor {
   }
   isPainting() {
     return this._painting;
+  }
+
+  /** Public accessor for viewport dimensions (replaces private field access). */
+  viewportSize() {
+    return { w: this._viewportW, h: this._viewportH };
   }
 
   setFeather(px) {
