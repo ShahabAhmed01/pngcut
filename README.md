@@ -81,7 +81,20 @@ These are deliberate and disclosed — not hidden:
 1. The image is decoded locally into a canvas.
 2. [`@imgly/background-removal`](https://github.com/imgly/background-removal-js)
    downloads the ISNet segmentation model + ONNX Runtime WASM once and caches it,
-   then runs inference on the device.
+   then runs inference on the device. The adapter (`src/engine.js`) wraps this
+   with its own resilience layer:
+   - **Retry with backoff** — up to 4 attempts per load (1.2 s base, ×2 backoff,
+     jitter). Between attempts it purges the service-worker model cache
+     (`pngcut-model-*`) and awaits the purge, so a stale or corrupt cache can't
+     be re-served mid-retry.
+   - **GPU → CPU fallback** — the WebGPU probe (`navigator.gpu.requestAdapter()`)
+     can succeed while the actual GPU session creation fails (driver, shader, EP
+     init). If all GPU attempts fail, `preload()` falls back to a full CPU load,
+     and `segmentForeground()` runs inference on the backend that actually
+     loaded. A GPU hiccup *during* inference also falls back to CPU once.
+   - **Recoverable module load** — a failed dynamic import of the engine module
+     no longer poisons the memoised promise; `resetModel()` (the retry chip)
+     clears it along with the in-flight preload promise and the SW model cache.
 3. The returned alpha mask is composited with the source image; brushes edit the
    alpha channel directly for lossless-quality edits.
 
@@ -185,6 +198,17 @@ ONNX Runtime Web significantly faster. The app still works (single-threaded WASM
 if those headers are absent. The same COOP/COEP headers are set for local dev in
 `vite.config.js`.
 
+**CSP `blob:` sources are load-bearing.** `@imgly/background-removal` downloads
+the ONNX Runtime glue (`.mjs`) and binary (`.wasm`) from its CDN and hands them
+to onnxruntime-web as `blob:` object URLs. The runtime then loads the glue with a
+dynamic `import("blob:…")` (governed by `script-src`) and fetches the binary via
+`fetch("blob:…")` (governed by `connect-src`). If you tighten the CSP and remove
+`blob:` from either directive, model loading will fail on every attempt —
+including retries — even though the site looks fine in `npm run dev` (Vite dev
+and preview servers send no CSP, which hides the breakage). This exact issue
+caused "Model load failed" for all production users at one point; keep `blob:`
+in `script-src` and `connect-src`.
+
 ### Model hosting (optional self-hosting)
 
 By default the model + WASM files are fetched from IMG.LY's CDN. To self-host:
@@ -207,6 +231,29 @@ The app includes a production-grade Service Worker (`public/sw.js`) that provide
 - **Auto-versioning** — SW version injected at build time from `package.json`
 
 See `vite.config.js` for the version injection plugin.
+
+## Troubleshooting
+
+**"Model load failed — click to retry" chip appears**
+
+- The chip is a real retry: clicking it resets the engine (in-flight preload +
+  memoised module import) and purges the service-worker model cache before
+  loading again.
+- First check the browser console. Common causes, in order of likelihood:
+  1. **CSP violation mentioning `blob:`** — you removed or tightened `blob:` in
+     `script-src`/`connect-src` (see the headers section above). Note the failure
+     only reproduces on the deployed site; dev/preview send no CSP.
+  2. **Network failure to `staticimgly.com`** (ad-blocker, offline, corporate
+     proxy). The model + runtime (~40 MB) are fetched from there once.
+  3. **WebGPU session failure** — the app already falls back to CPU
+     automatically; if it still fails, force CPU by picking a smaller model tier
+     or test in another browser.
+- After a deploy, do one hard reload: an old service worker can briefly serve a
+  stale shell; the SW is network-first for navigations and auto-skips-waiting,
+  so a single reload is enough.
+- If everything loaded but processing fails for one file, that's usually an
+  oversized/corrupt input (limits are in "Known limitations"), not a model
+  problem.
 
 ## Licensing note
 
