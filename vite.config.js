@@ -21,6 +21,7 @@ const STATIC_PAGES = new Set([
   "about",
   "api",
   "contact",
+  "models",
   "privacy",
   "support",
   "terms",

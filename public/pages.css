@@ -55,6 +55,40 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
   font-size: 13px; line-height: 1.6; color: var(--text);
 }
 .updated { color: var(--text-faint); font-size: 12.5px; font-style: italic; }
+
+/* --- Tables (used on /models) --- */
+.table-wrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-soft); border-radius: var(--radius);
+  margin: 16px 0;
+}
+.table-wrap table {
+  width: 100%; border-collapse: collapse; min-width: 640px; font-size: 14px;
+}
+.table-wrap caption {
+  caption-side: top; text-align: left; padding: 10px 16px;
+  font-weight: 700; color: var(--text-dim); letter-spacing: 0.03em;
+  text-transform: uppercase; font-size: 11px;
+}
+.table-wrap th,
+.table-wrap td { padding: 9px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+.table-wrap thead th {
+  color: var(--text-dim); font-weight: 700; font-size: 11.5px;
+  letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid var(--border-soft);
+}
+.table-wrap tbody tr:last-child td { border-bottom: none; }
+.table-wrap tbody tr:hover td { background: var(--bg-panel); }
+
+/* --- License / status badges --- */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+  letter-spacing: 0.03em; white-space: nowrap;
+}
+.badge--ok   { background: rgba(22, 195, 216, 0.14); color: var(--accent-2); }
+.badge--no   { background: rgba(231, 76, 60, 0.14);  color: #ff6b6b;        }
+.badge--warn { background: rgba(243, 186, 48, 0.14);  color: #ffcc02;        }
+
 /* CSP-safe: no inline style attributes — everything lives here */
 .card h2:first-child, .card p:first-child { margin-top: 0; }
 .page-404 { text-align: center; padding-top: 80px; }

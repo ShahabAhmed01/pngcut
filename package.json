@@ -1,6 +1,6 @@
 {
   "name": "pngcut",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Free, in-browser background remover. No signup, no upload-based processing.",

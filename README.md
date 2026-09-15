@@ -74,6 +74,30 @@ These are deliberate and disclosed — not hidden:
   the chosen model tier applies to video/bulk too: bulk uses the same on-device
   default, the video pipeline has its own quality ladder.
 
+## AI Models
+
+PNGCut runs the **ISNet** segmentation network directly in your browser via
+[`@imgly/background-removal`](https://github.com/imgly/background-removal-js)
+and **ONNX Runtime Web** (WebGPU when available, multi-threaded WASM otherwise).
+
+Three weight tiers are selectable in the toolbar (Best / Balanced / Fast — these
+are the same architecture at different precisions, so the quality difference is
+subtle; the real trade-off is download size and speed).
+
+For background on *which* model and *why*, and how ISNet compares with the
+alternatives that are commonly recommended (U²-Net, BiRefNet, BEN2, RMBG-1.4,
+RMBG-2.0, MODNet, Robust Video Matting, MediaPipe), see the
+**[AI Models](https://pngcut.vercel.app/models)** page. In short:
+
+> ISNet is Apache-2.0, so an MIT project can ship it. The most accurate public
+> models (RMBG-1.4 / 2.0, RVM) are source-available for **non-commercial use
+> only** or **GPL-3.0** — none can be redistributed inside a free MIT app. A
+> tuned ISNet is a sensible baseline, not a compromise.
+
+A full model catalogue with per-model architecture, reported size, license, and
+in-PNGCut status is on the Models page and in
+[`public/models.html`](public/models.html).
+
 ## How it works
 
 **Images** (`src/main.js`, `src/editor.js`)

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Models &amp; Cutout Quality — PNGCut</title>
+  <meta name="description" content="Which AI model PNGCut runs in your browser, how it compares with BiRefNet, RMBG-2.0, BEN2, U2-Net and MODNet, and the licenses that decide what a free MIT app can ship." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pngcut.vercel.app/models" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/pages.css" />
+  <meta name="theme-color" content="#0b0d12" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-name">PNGCut</span></a>
+    <nav class="topbar-actions">
+      <a class="nav-link active" href="/models">Models</a>
+      <a class="nav-link" href="/support">Support</a>
+      <a class="nav-link" href="/api">API</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <h1>AI models &amp; cutout quality</h1>
+    <p class="lede">PNGCut runs a real segmentation network on your own device. Here is exactly which model it uses, how that compares with the best models available today, and why the license decides what a free MIT app can ship.</p>
+    <p class="updated">Last reviewed: 15 September 2026</p>
+
+    <h2>What PNGCut runs today</h2>
+    <p><strong>ISNet</strong> — the general-use variant of <strong>IS-Net</strong>, from <em>Highly Accurate Dichotomous Image Segmentation</em> (DIS, ECCV 2022). It runs through <a href="https://github.com/imgly/background-removal-js" rel="noopener">@imgly/background-removal</a> on <strong>ONNX Runtime Web</strong>: WebGPU when your browser exposes an adapter, multi-threaded WASM otherwise.</p>
+    <p>Three weight tiers ship in the toolbar. They are the same architecture at different precisions, so the quality difference is subtle — the real trade-off is download size and speed.</p>
+
+    <div class="table-wrap">
+      <table>
+        <caption>The three ISNet tiers you can pick in the toolbar</caption>
+        <thead>
+          <tr><th>Tier</th><th>Weights</th><th>Download</th><th>Speed</th><th>Pick it when</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Best</strong> (large)</td><td>Full precision, FP32</td><td>Largest</td><td>Slowest</td><td>Final exports, where fine hair and thin edges matter</td></tr>
+          <tr><td><strong>Balanced</strong> (medium)</td><td>Half precision, FP16</td><td>Moderate</td><td>Fast</td><td>The default — right for most images</td></tr>
+          <tr><td><strong>Fast</strong> (small)</td><td>8-bit quantized</td><td>Smallest</td><td>Fastest</td><td>Many images at once, or a slower CPU-only device</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>How it compares with the best models available</h2>
+    <p>These are the models you will see recommended for background removal and image matting. The <strong>License</strong> column is the decisive one for a free, MIT-licensed app that runs the model in your browser.</p>
+
+    <div class="table-wrap">
+      <table>
+        <caption>Background removal and matting models, by license</caption>
+        <thead>
+          <tr><th>Model</th><th>Architecture</th><th>Reported size</th><th>License</th><th>Strongest at</th><th>In PNGCut</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>ISNet</strong> (isnet-general-use)</td>
+            <td>IS-Net / DIS, ECCV 2022</td>
+            <td>~176 MB PyTorch weights</td>
+            <td>Apache-2.0 <span class="badge badge--ok">permissive</span></td>
+            <td>General subjects, fine edges</td>
+            <td><span class="badge badge--ship">Ships</span></td>
+          </tr>
+          <tr>
+            <td><strong>ISNet anime</strong> (isnet-anime)</td>
+            <td>IS-Net, anime-tuned</td>
+            <td>Same order as ISNet</td>
+            <td>Apache-2.0 <span class="badge badge--ok">permissive</span></td>
+            <td>Illustration and cel-shaded art</td>
+            <td><span class="badge">Not wired up</span></td>
+          </tr>
+          <tr>
+            <td><strong>U2-Net</strong> (u2net)</td>
+            <td>U2-Net, Pattern Recognition 2020</td>
+            <td>176.3 MB</td>
+            <td>Apache-2.0 <span class="badge badge--ok">permissive</span></td>
+            <td>Classic general purpose, blockier edges</td>
+            <td><span class="badge">Not bundled</span></td>
+          </tr>
+
+          <tr>
+            <td><strong>U2-NetP</strong> (u2netp)</td>
+            <td>U2-Net, small variant</td>
+            <td>4.7 MB</td>
+            <td>Apache-2.0 <span class="badge badge--ok">permissive</span></td>
+            <td>Tiny and fast, lower fidelity</td>
+            <td><span class="badge">Not bundled</span></td>
+          </tr>
+          <tr>
+            <td><strong>BiRefNet</strong></td>
+            <td>Bilateral Reference, CAAI AIR 2024</td>
+            <td>1024x1024 inference</td>
+            <td>MIT <span class="badge badge--ok">permissive</span></td>
+            <td>State-of-the-art high-resolution segmentation</td>
+            <td><span class="badge badge--warn">Roadmap</span></td>
+          </tr>
+          <tr>
+            <td><strong>BEN2</strong></td>
+            <td>Confidence Guided Matting</td>
+            <td>ONNX weights published</td>
+            <td>MIT (base model) <span class="badge badge--ok">permissive</span></td>
+            <td>Hair matting, 4K input, edge refinement</td>
+            <td><span class="badge badge--warn">Roadmap</span></td>
+          </tr>
+          <tr>
+            <td><strong>RMBG-1.4</strong> (BRIA)</td>
+            <td>IS-Net trained on BRIA data</td>
+            <td>44.1 M parameters</td>
+            <td><span class="badge badge--no">Non-commercial</span></td>
+            <td>Products, people, e-commerce</td>
+            <td><span class="badge badge--no">Excluded</span></td>
+          </tr>
+          <tr>
+            <td><strong>RMBG-2.0</strong> (BRIA)</td>
+            <td>BiRefNet trained on BRIA data</td>
+            <td>0.2 B parameters, 1024x1024</td>
+            <td><span class="badge badge--no">Non-commercial</span></td>
+            <td>Top-tier cutout quality, soft mattes</td>
+            <td><span class="badge badge--no">Excluded</span></td>
+          </tr>
+          <tr>
+            <td><strong>MODNet</strong></td>
+            <td>Trimap-free portrait matting, AAAI 2022</td>
+            <td>ONNX and TorchScript conversions exist</td>
+            <td>Apache-2.0 <span class="badge badge--ok">permissive</span></td>
+            <td>Real-time portraits and video</td>
+            <td><span class="badge badge--warn">Candidate</span></td>
+          </tr>
+          <tr>
+            <td><strong>MediaPipe Selfie Segmenter</strong></td>
+            <td>MediaPipe Tasks Vision</td>
+            <td>256x256, float16</td>
+            <td>Apache-2.0 <span class="badge badge--ok">permissive</span></td>
+            <td>Instant person/background split on any device</td>
+            <td><span class="badge">Not bundled</span></td>
+          </tr>
+          <tr>
+            <td><strong>MediaPipe DeepLab-V3</strong></td>
+            <td>MediaPipe Tasks Vision</td>
+            <td>257x257, float32</td>
+            <td>Apache-2.0 <span class="badge badge--ok">permissive</span></td>
+            <td>Coarse categories: person, cat, dog, plant</td>
+            <td><span class="badge">Not bundled</span></td>
+          </tr>
+          <tr>
+            <td><strong>RVM</strong> (Robust Video Matting)</td>
+            <td>Recurrent video matting, WACV 2022</td>
+            <td>Real-time 4K on GPU</td>
+            <td><span class="badge badge--no">GPL-3.0</span></td>
+            <td>Human video matting with temporal memory</td>
+            <td><span class="badge badge--no">Excluded</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Why PNGCut ships ISNet</h2>
+    <ul>
+      <li><strong>The license works for a free app.</strong> ISNet is Apache-2.0, so an MIT project can ship the weights to your browser and you can fork it. RMBG-1.4 and RMBG-2.0 are source-available for non-commercial use only, and RVM is GPL-3.0 — none of those can be redistributed inside an MIT app.</li>
+      <li><strong>It is the same family as the most popular model.</strong> BRIA built RMBG-1.4 by training IS-Net on a proprietary dataset, so much of what people call RMBG quality is ISNet plus a better training set. That makes a tuned ISNet a sensible baseline rather than a compromise.</li>
+      <li><strong>It fits in a browser.</strong> The FP16 and 8-bit tiers keep the one-time download in the tens of megabytes, and inference still runs when WebGPU is missing (CPU or WASM).</li>
+    </ul>
+
+    <h2>How quality is pushed beyond the raw model</h2>
+    <p>The model output is only half of a good cutout. Everything below runs locally, deterministically, with no server involved:</p>
+    <ul>
+      <li><strong>Mask refinement</strong> — speckle removal, edge-aware smoothing, halo-crushing contrast and an optional crisp threshold clean the raw alpha before you see it (Auto, Crisp, Soft or Off).</li>
+      <li><strong>Device-aware tier selection</strong> — Auto picks a tier from a real WebGPU adapter probe rather than a user-agent guess, and a failed GPU session falls back to CPU instead of failing.</li>
+      <li><strong>Bounded working size</strong> — very large images are processed at a bounded long side, preserving detail without exhausting browser memory.</li>
+      <li><strong>A manual finish</strong> — erase and restore brushes, feathering and a compare slider for the parts no model gets right.</li>
+    </ul>
+
+    <h2>Sources</h2>
+    <ul>
+      <li>IS-Net / DIS — <a href="https://github.com/xuebinqin/DIS" rel="noopener">xuebinqin/DIS</a> (Apache-2.0)</li>
+      <li>U2-Net — <a href="https://github.com/xuebinqin/U-2-Net" rel="noopener">xuebinqin/U-2-Net</a> (Apache-2.0)</li>
+      <li>BiRefNet — <a href="https://github.com/ZhengPeng7/BiRefNet" rel="noopener">ZhengPeng7/BiRefNet</a> (MIT)</li>
+      <li>BEN2 — <a href="https://github.com/PramaLLC/BEN2" rel="noopener">PramaLLC/BEN2</a> (MIT base model)</li>
+      <li>RMBG-1.4 — <a href="https://huggingface.co/briaai/RMBG-1.4" rel="noopener">briaai/RMBG-1.4</a> (non-commercial)</li>
+      <li>RMBG-2.0 — <a href="https://huggingface.co/briaai/RMBG-2.0" rel="noopener">briaai/RMBG-2.0</a> (non-commercial)</li>
+      <li>MODNet — <a href="https://github.com/ZHKKKe/MODNet" rel="noopener">ZHKKKe/MODNet</a> (Apache-2.0)</li>
+      <li>RVM — <a href="https://github.com/PeterL1n/RobustVideoMatting" rel="noopener">PeterL1n/RobustVideoMatting</a> (GPL-3.0)</li>
+      <li>MediaPipe image segmentation — <a href="https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter" rel="noopener">Google AI Edge</a> (Apache-2.0)</li>
+      <li>Model catalogue — <a href="https://github.com/danielgatis/rembg" rel="noopener">danielgatis/rembg</a> (MIT library)</li>
+    </ul>
+  </main>
+
+  <footer class="footer">
+    <nav class="footer-links">
+      <a href="/about">About</a><a href="/models">Models</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/support">Support</a><a href="/contact">Contact</a><a href="https://github.com/ShahabAhmed01/pngcut" rel="noopener">GitHub</a>
+    </nav>
+    <p>© 2026 PNGCut · Free &amp; open source</p>
+  </footer>
+</body>
+</html>

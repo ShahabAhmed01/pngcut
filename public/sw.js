@@ -12,7 +12,7 @@
  *  - Analytics: untouched (always network, never cached).
  */
 
-const VERSION = "v1.1.1";
+const VERSION = "v1.2.0";
 const SHELL_CACHE = `pngcut-shell-${VERSION}`;
 const ASSET_CACHE = `pngcut-assets-${VERSION}`;
 const MODEL_CACHE = `pngcut-model-${VERSION}`;
@@ -23,6 +23,7 @@ const PRECACHE_URLS = [
   "/manifest.webmanifest",
   "/favicon.svg",
   "/privacy.html",
+  "/models.html",
   "/404.html",
   // samples are tiny (~35 KB each) — precached so "Try a sample" works offline
   "/samples/portrait.jpg",
