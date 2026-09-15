@@ -22,10 +22,13 @@ export async function initApp({ state, el, buildGradientSwatches, bindUpload, bi
   el.featherVal.textContent = `${el.feather.value}px`;
   el.qualityVal.textContent = `${el.qualityRange.value}%`;
 
-  // warm model pick: probe WebGPU properly, fall back to CPU otherwise
-  engine.probeDevice().then((device) => {
-    state.device = device;
-  });
+  // warm model pick: probe WebGPU properly, fall back to CPU otherwise.
+  // Await the probe so the warm-up below (and the retry chip) use the *real*
+  // device instead of the synchronous "gpu in navigator" guess — a probe that
+  // resolves later to "cpu" used to leave the prefetch loading on a GPU the
+  // device may not be able to actually run inference on.
+  const device = await engine.probeDevice();
+  state.device = device;
 
   showStatus("Drop an image to remove its background — everything runs in your browser.");
 

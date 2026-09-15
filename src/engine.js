@@ -9,23 +9,28 @@ const statusListeners = new Set();
 
 /** Clear the service-worker–cached copies of the model/runtime assets so a
  *  stale or corrupt SW cache can't poison the next load. Best-effort / no-op
- *  when SW isn't controlling the page. */
+ *  when SW isn't controlling the page. Returns a promise that resolves once
+ *  the cache entries are gone (so retries never race the deletion). */
 function clearModelCache() {
-  if (typeof caches === "undefined") return;
   // Dynamically find and delete any versioned model caches created by the SW
-  caches.keys()
-    .then((names) =>
-      Promise.all(
-        names
-          .filter((n) => n.startsWith("pngcut-model-") || n.startsWith("imgly-model") || n.startsWith("imgly-resources"))
-          .map((n) => caches.delete(n))
-      )
-    )
-    .catch(() => {});
+  const purge =
+    typeof caches === "undefined"
+      ? Promise.resolve()
+      : caches
+          .keys()
+          .then((names) =>
+            Promise.all(
+              names
+                .filter((n) => n.startsWith("pngcut-model-") || n.startsWith("imgly-model") || n.startsWith("imgly-resources"))
+                .map((n) => caches.delete(n))
+            )
+          )
+          .catch(() => {});
   // Nudge the SW to skipWaiting so a fresh install sees the new policy.
   if (typeof navigator !== "undefined" && navigator.serviceWorker?.controller) {
     navigator.serviceWorker.controller.postMessage("SKIP_WAITING");
   }
+  return purge;
 }
 
 /** Retry policy for model loads that fail (network hiccup, SW serving a corrupt
@@ -65,7 +70,9 @@ async function withRetry(fn) {
       );
       // Don't sleep after the last attempt — throw immediately.
       if (attempt + 1 >= RETRY_POLICY.maxAttempts) break;
-      clearModelCache();
+      // Await the purge so the next attempt can't re-read the cache we just
+      // decided was bad (previously fire-and-forget, which raced the retry).
+      await clearModelCache();
       await new Promise((r) => setTimeout(r, backoffDelay(attempt)));
     }
   }
@@ -136,7 +143,12 @@ export async function probeDevice() {
 
 export function loadEngine() {
   if (!modulePromise) {
-    modulePromise = import("@imgly/background-removal");
+    modulePromise = import("@imgly/background-removal").catch((err) => {
+      // A failed dynamic import caches its rejection forever; drop the
+      // memoised promise so the next call (e.g. the retry chip) can retry it.
+      modulePromise = null;
+      throw err;
+    });
   }
   return modulePromise;
 }
@@ -202,8 +214,19 @@ export function preload(options = {}) {
   setModelStatus("loading");
   preloadPromise = (async () => {
     const engine = await loadEngine();
-    await withRetry(() => engine.preload(makeConfig(model, device)));
-    activeBackend = device;
+    try {
+      await withRetry(() => engine.preload(makeConfig(model, device)));
+      activeBackend = device;
+    } catch (err) {
+      // A WebGPU probe can succeed while the actual GPU session creation
+      // fails (driver, shader-compile or EP-init issues). Before giving up,
+      // fall back to one full CPU load so a broken GPU doesn't strand the
+      // user — previously we retried the same GPU config 4× and stopped.
+      if (device !== "gpu") throw err;
+      console.warn("GPU model load failed; falling back to CPU.", err);
+      await withRetry(() => engine.preload(makeConfig(model, "cpu")));
+      activeBackend = "cpu";
+    }
     setModelStatus("ready");
     return true;
   })().catch((err) => {
@@ -222,6 +245,7 @@ export function preload(options = {}) {
  */
 export function resetModel() {
   preloadPromise = null;
+  modulePromise = null;
   clearModelCache();
   setModelStatus("idle");
 }
@@ -235,10 +259,7 @@ export async function segmentForeground(blob, options = {}) {
   const resolvedDevice = await probeDevice();
   const engine = await loadEngine();
   const model = isModelTier(options.model) ? options.model : defaultModel(resolvedDevice);
-  const device = options.device === "gpu" || options.device === "cpu" ? options.device : resolvedDevice;
-  const config = makeConfig(model, device, options.output, options.onProgress);
-
-  activeBackend = device;
+  let device = options.device === "gpu" || options.device === "cpu" ? options.device : resolvedDevice;
 
   // Ensure the canonical session is loaded before we try to run inference on
   // it. If a load is already in flight (preloadPromise) we join it; otherwise
@@ -248,7 +269,14 @@ export async function segmentForeground(blob, options = {}) {
   // also fails to recover on retry.
   if (modelStatus !== "ready") {
     await preload({ model, device });
+    // If preload had to fall back (e.g. GPU → CPU because the GPU session
+    // failed to initialize), run inference on the backend that actually
+    // loaded instead of re-attempting the failed one.
+    if (device === "gpu" && activeBackend === "cpu") device = "cpu";
   }
+  activeBackend = device;
+  const config = makeConfig(model, device, options.output, options.onProgress);
+
   try {
     return await engine.segmentForeground(blob, config);
   } catch (err) {
