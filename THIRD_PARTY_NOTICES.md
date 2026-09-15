@@ -28,6 +28,20 @@ work may carry additional obligations that the project's MIT license does not
 describe. Review the AGPL license to understand these. IMG.LY offers commercial
 licensing (see the upstream repository for contact details).
 
+### Build-time modification to this dependency
+
+PNGCut modifies **one function** inside the installed
+`@imgly/background-removal` bundle at install/build time: the `ndarray` code
+generator (`compileConstructor()`) is replaced with an eval-free implementation
+(`scripts/patches/imgly-ndarray-eval-free.js`) so the app can run under a
+Content-Security-Policy that omits `'unsafe-eval'`. The replacement is original
+PNGCut code published in this repository; `scripts/apply-patches.mjs` documents
+exactly what is spliced and `test/patches.test.js` verifies it. Nothing else in
+the bundle is altered.
+
+`ndarray` (bundled inside the package above) is MIT-licensed:
+https://github.com/mikolalysenko/ndarray
+
 ### `onnxruntime-web` (MIT)
 
 ONNX Runtime Web provides the WASM/WebGPU execution of the segmentation model.

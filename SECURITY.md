@@ -40,7 +40,10 @@ boundaries of interest are:
 - user-controlled strings (filenames, metadata) must never be injected into the
   DOM unsafely;
 - cross-origin isolation and content-security-policy headers must remain
-  effective;
+  effective. The policy deliberately omits `'unsafe-eval'`; the inference bundle
+  is kept eval-free by `scripts/apply-patches.mjs` (see the "Dependency patches"
+  section of [`README.md`](README.md)), and `test/patches.test.js` fails if any
+  shipped asset starts using dynamic string evaluation again;
 - no unexpected third-party requests should be introduced.
 
 Bug reports in these areas are especially welcome.

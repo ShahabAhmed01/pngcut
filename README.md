@@ -144,6 +144,16 @@ src/
   init.js           app initialization (analytics, SW, model preload)
 ```
 
+Build-time tooling lives in `scripts/`:
+
+```text
+scripts/
+  apply-patches.mjs               postinstall/prebuild dependency patch (see below)
+  patches/                        the eval-free inference bundle implementation
+  gen-icons.py                    regenerates the PWA icons
+  gen-samples.py                  regenerates the bundled sample images
+```
+
 ## Stack
 
 - [Vite](https://vitejs.dev/) — build tool
@@ -152,6 +162,40 @@ src/
 - Vanilla JS + Canvas 2D — no UI framework, minimal runtime, fast load
 
 See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for full license details.
+
+## Dependency patches (keeping the strict CSP)
+
+`@imgly/background-removal` bundles the [`ndarray`](https://www.npmjs.com/package/ndarray)
+package, whose `compileConstructor()` JIT-generates its array-view classes with
+`new Function(...)` string evaluation. PNGCut ships a CSP **without**
+`'unsafe-eval'`, so the first `ndarray(...)` call after inference threw:
+
+```text
+EvalError: Evaluating a string as JavaScript violates the following Content
+Security Policy directive because 'unsafe-eval' is not an allowed source of script.
+```
+
+That failure was easy to misread: `compileConstructor` is lazy and compiles the
+`-1` dimension first, so it blew up on the line *after* a successful inference —
+the status chip said "Model ready · GPU" while every upload failed.
+
+Instead of weakening the policy, `scripts/apply-patches.mjs` replaces just that
+one function in the installed bundle with an eval-free, behaviourally identical
+implementation (`scripts/patches/imgly-ndarray-eval-free.js`). The script:
+
+- runs automatically on **`postinstall`** and again on **`prebuild`**, so local
+  dev, CI and the Vercel build all run against the patched bundle;
+- is **dependency-free, offline, deterministic and idempotent** (a re-run is a
+  no-op), and never needs network access to patch;
+- **fails the build loudly** if the eval sites ever return (for example after an
+  upstream refactor) instead of shipping a bundle that breaks under the CSP;
+- can be verified without modifying anything: `npm run check:patches`.
+
+`test/patches.test.js` guards the invariant (zero `new Function` calls in the
+installed bundle and in every shipped `dist/assets/*.js`) and checks the patched
+implementation against upstream semantics — constructor, `shape`/`stride`/`size`/
+`order`, `get`/`set`/`index`, `hi`/`lo`/`step`/`transpose`/`pick`, the `generic`
+dtype and the degenerate `-1`/`0` dimensions.
 
 ## Getting started
 
@@ -166,7 +210,11 @@ npm run build     # production build -> dist/
 npm run preview   # preview production build
 npm test          # run unit tests
 npm run lint      # run ESLint
+npm run check:patches   # verify the inference bundle is eval-free
 ```
+
+`npm install` applies the dependency patch described above automatically via
+`postinstall`, and `npm run build` re-checks it via `prebuild`.
 
 ## Deploying to Vercel
 
@@ -208,6 +256,16 @@ including retries — even though the site looks fine in `npm run dev` (Vite dev
 and preview servers send no CSP, which hides the breakage). This exact issue
 caused "Model load failed" for all production users at one point; keep `blob:`
 in `script-src` and `connect-src`.
+
+**`'unsafe-eval'` is intentionally absent.** The policy allows `'wasm-unsafe-eval'`
+(WebAssembly compilation) but *not* JavaScript string evaluation. `ndarray`,
+bundled inside `@imgly/background-removal`, historically JIT-built its view
+classes with `new Function(...)`, which threw an `EvalError` on the first call
+after inference. That dependency is patched to an eval-free implementation at
+install/build time instead of relaxing the CSP — see
+[Dependency patches](#dependency-patches-keeping-the-strict-csp). If you fork
+PNGCut and skip that step (or bump the dependency without re-checking), the
+`prebuild`/`check:patches` guard will fail before anything ships.
 
 ### Model hosting (optional self-hosting)
 
@@ -254,6 +312,24 @@ See `vite.config.js` for the version injection plugin.
 - If everything loaded but processing fails for one file, that's usually an
   oversized/corrupt input (limits are in "Known limitations"), not a model
   problem.
+
+**Chip says "Model ready" but every upload fails ("Something went wrong")**
+
+This pattern — model fine, every file failing — is the signature of a crash
+*after* inference, in the mask post-processing, and the console tells you which:
+
+1. **`EvalError: … 'unsafe-eval' is not an allowed source of script`** — the
+   inference bundle is running unpatched (see
+   [Dependency patches](#dependency-patches-keeping-the-strict-csp)). Run
+   `npm run check:patches`; if it fails, run `node scripts/apply-patches.mjs`
+   and rebuild. A fresh `npm ci` fixes it automatically via `postinstall`.
+   Error classification maps this to a model-init message, so a report showing
+   generic "Something went wrong" for this case means the classifier pattern
+   needs extending.
+2. **`No available adapters` (warning, not an error)** — your browser exposes no
+   WebGPU device; PNGCut already runs on CPU. Harmless on its own.
+3. **`Out of memory` / very large images** — lower the working size or the model
+   tier (see "Known limitations").
 
 ## Licensing note
 
