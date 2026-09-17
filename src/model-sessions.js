@@ -78,7 +78,21 @@ export function createSessionRegistry(adapter, notify = () => {}) {
     }
   }
   return {
-    preload: (model, device, output) => ensure(model, device, output).promise,
+    preload: async (model, device, output, onProgress) => {
+      const entry = ensure(model, device, output);
+      const listener = (...args) => onProgress?.(...args);
+      entry.listeners.add(listener);
+      try {
+        await entry.promise;
+        return true;
+      } finally {
+        entry.listeners.delete(listener);
+      }
+    },
+    backend: (model, device, output) => {
+      const entry = entries.get(keyFor(model, device, output));
+      return entry?.fallback?.device || entry?.device || "unknown";
+    },
     segment,
     status: (model, device, output) => entries.get(keyFor(model, device, output))?.status || "idle",
   };

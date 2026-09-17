@@ -35,7 +35,9 @@ the precise wording.
 - **Device-adaptive AI model** — Best (full-precision ISNet), Balanced (FP16)
   or Fast (quantized): Auto pre-picks by GPU/CPU capability, each option shows a
   description and load state, and loaded models stay warm in the tab so you can
-  switch between them without re-downloading. Nothing downloads until needed.
+  switch between them without re-downloading. The Auto-selected model starts
+  downloading in the background on page load, with progress and a retry button.
+  Explicit browser Save-Data mode skips this warm-up; other models load on demand.
 - **Erase** and **Restore** brush for fine edge refinement (live preview while
   painting, even on multi-megapixel images)
 - Undo / redo (memory-bounded)

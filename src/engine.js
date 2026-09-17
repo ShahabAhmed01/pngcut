@@ -112,12 +112,16 @@ function setModelStatus(status) {
 export function preload(options = {}) {
   const device = options.device || defaultDevice();
   const model = isModelTier(options.model) ? options.model : defaultModel(device);
-  return sessions.preload(model, device, { ...CANONICAL_OUTPUT, ...options.output });
+  return sessions.preload(model, device, { ...CANONICAL_OUTPUT, ...options.output }, options.onProgress);
 }
 
 /** Failed entries are removed automatically; never purge healthy models. */
 export function resetModel() {
   setModelStatus("idle");
+}
+
+export function getModelBackend(model, device = defaultDevice()) {
+  return sessions.backend(model, device, CANONICAL_OUTPUT);
 }
 
 export function getModelLoadStatus(model, device = defaultDevice()) {

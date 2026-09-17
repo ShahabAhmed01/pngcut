@@ -1,0 +1,225 @@
+/* ============================================================
+   Landing page polish — layered over studio.css (same tokens).
+   Ambient depth + frosted glass + refined sections.
+   All control IDs/hooks untouched; dark & light theme aware.
+   ============================================================ */
+
+/* ---------- Ambient hero backdrop ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 38% at 18% 22%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+    radial-gradient(38% 34% at 82% 18%, color-mix(in srgb, var(--accent-2) 13%, transparent), transparent 70%),
+    radial-gradient(30% 30% at 62% 78%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 72%);
+  animation: hero-drift 26s ease-in-out infinite alternate;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(color-mix(in srgb, var(--text) 7%, transparent) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(70% 60% at 50% 40%, black, transparent 100%);
+  -webkit-mask-image: radial-gradient(70% 60% at 50% 40%, black, transparent 100%);
+  opacity: 0.5;
+}
+@keyframes hero-drift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+  to   { transform: translate3d(1.5%, 1.5%, 0) scale(1.04); }
+}
+.hero-inner { position: relative; z-index: 1; }
+
+/* ---------- Eyebrow → pill badge ---------- */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 65%, transparent);
+  border-radius: 999px;
+  padding: 7px 14px;
+  letter-spacing: 0.13em;
+  line-height: 1.4;
+}
+.eyebrow::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+/* ---------- Title: serif italic line becomes a gradient ---------- */
+.hero-title span {
+  background: linear-gradient(100deg, var(--accent), var(--accent-2) 85%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Upload card → frosted glass ---------- */
+.upload-card {
+  background: color-mix(in srgb, var(--bg-elev) 74%, transparent);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, var(--border));
+  box-shadow:
+    var(--shadow),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.upload-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
+}
+.free-label {
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  font-weight: 600;
+}
+
+/* ---------- Dropzone inside the glass card ---------- */
+.dropzone {
+  border-radius: 16px;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.dropzone:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.primary-upload {
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 26%, transparent);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.primary-upload:hover { filter: brightness(1.06); transform: translateY(-1px); }
+
+/* ---------- Trust strip ---------- */
+.features li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: color-mix(in srgb, var(--bg-panel) 60%, transparent);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 8px 15px;
+}
+.feat-check { font-weight: 700; }
+
+/* ---------- How-it-works: glass cards + gradient numbers ---------- */
+.how-card {
+  background: color-mix(in srgb, var(--bg-elev) 72%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  transition: transform 0.22s ease, border-color 0.22s ease;
+}
+.how-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.how-num {
+  display: inline-grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  font-weight: 700;
+  color: var(--on-accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+/* ---------- FAQ ---------- */
+.faq-list details {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-elev) 60%, transparent);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.faq-list summary {
+  cursor: pointer;
+  list-style: none;
+  position: relative;
+  padding-right: 40px;
+}
+.faq-list summary::-webkit-details-marker { display: none; }
+.faq-list summary::after {
+  content: "+";
+  position: absolute;
+  right: 16px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 600;
+  transition: transform 0.18s ease;
+}
+.faq-list details[open] summary::after { transform: translateY(-50%) rotate(45deg); }
+
+/* ---------- Model status pill ---------- */
+.model-status-wrap { margin-top: 18px; min-height: 32px; }
+.model-chip[aria-disabled="false"] { cursor: pointer; }
+.model-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+.model-chip::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  flex-shrink: 0;
+}
+.model-chip.loading::before {
+  background: var(--warning);
+  animation: chip-pulse 1.1s ease-in-out infinite;
+}
+@keyframes chip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.model-chip.ready::before { background: var(--accent); }
+.model-chip.error { color: var(--error); }
+.model-chip.error::before { background: var(--error); }
+
+@media (max-width: 900px) {
+  .hero-inner { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .hero-copy { text-align: center; }
+  .hero-sub { margin-inline: auto; }
+  .studio-note { justify-content: center; text-align: left; }
+  .upload-card { width: 100%; max-width: 580px; justify-self: center; }
+}
+@media (max-width: 420px) {
+  .hero { padding-inline: 14px; }
+  .upload-card { padding: 14px; }
+  .dropzone-inner { padding-inline: 10px; }
+  .eyebrow { letter-spacing: 0.08em; }
+  .features { gap: 10px; }
+  .features li { padding: 8px 10px; }
+}
+
+/* ---------- Motion & accessibility ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .hero::before { animation: none; }
+  .upload-card, .dropzone, .primary-upload, .how-card,
+  .upload-card:hover, .dropzone:hover, .how-card:hover { transition: none; transform: none; }
+  .model-chip.loading::before { animation: none; }
+}
+
