@@ -12,6 +12,7 @@
     <link rel="canonical" href="https://pngcut.vercel.app/" />
     <meta name="theme-color" content="#0b0d12" />
     <meta name="color-scheme" content="dark" />
+    <script src="/theme.js"></script>
     <link rel="manifest" href="/manifest.webmanifest" />
 
     <!-- Open Graph -->
@@ -140,10 +141,10 @@
   <body>
     <header class="topbar">
       <a class="brand" href="/" aria-label="PNGCut home">
-        <svg class="brand-mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
-          <rect x="3" y="3" width="26" height="26" rx="7" fill="none" stroke="currentColor" stroke-width="2.5"/>
-          <path d="M9 20 L14 13 L18 17 L23 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="21" cy="7.5" r="2.5" fill="currentColor"/>
+        <svg class="brand-mark" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+          <rect width="32" height="32" rx="9" fill="#244c3d"/>
+          <path d="M9 9h14v5h-5v9H9Z" fill="#f7f5ef"/>
+          <path d="M20 17h5v8h-8v-5h3Z" fill="#b9cbb1"/>
         </svg>
         <span class="brand-name">PNGCut</span>
       </a>
@@ -162,8 +163,14 @@
       <!-- ============ HERO / DROPZONE ============ -->
       <section id="hero" class="hero">
         <div class="hero-inner">
-          <h1 class="hero-title">Free background removal<br /><span>for images and videos.</span></h1>
-          <p class="hero-sub">Runs entirely in your browser. Your selected media is processed on your device — not uploaded for background removal. No signup, no watermark, no usage quota.</p>
+          <div class="hero-copy">
+            <p class="eyebrow">A little less background. A lot more possibility.</p>
+            <h1 class="hero-title">Keep the subject.<br /><span>Lose the rest.</span></h1>
+            <p class="hero-sub">Beautiful cutouts, without the busywork. Remove backgrounds from images and videos, right in your browser. Free, private, and entirely yours.</p>
+            <div class="studio-note"><span class="studio-note-mark" aria-hidden="true">↗</span><p>Your files stay on your device.<br /><a href="/privacy">Designed for your privacy</a></p></div>
+          </div>
+          <div class="upload-card">
+            <div class="upload-card-heading"><span>YOUR CREATIVE SPACE</span><span class="free-label">100% free</span></div>
 
           <section id="dropzone" class="dropzone" aria-label="Upload images or video">
             <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp" hidden />
@@ -194,6 +201,7 @@
             <button class="sample-btn" data-sample="/samples/product.jpg">Product</button>
             <button class="sample-btn" data-sample="/samples/animal.jpg">Animal</button>
           </p>
+          </div>
 
           <ul class="features">
             <li><span class="feat-check">✓</span>Processing happens on your device</li>

@@ -1,25 +1,11 @@
-/* PNGCut static pages — standalone styles matching the app theme */
-:root {
-  --bg: #0b0d12;
-  --bg-elev: #12151d;
-  --bg-panel: #161a24;
-  --border: #242a38;
-  --border-soft: #1d2330;
-  --text: #e8ecf4;
-  --text-dim: #9aa3b5;
-  --text-faint: #6b7384;
-  --accent: #ff5c7a;
-  --accent-2: #16c3d8;
-  --accent-soft: rgba(255, 92, 122, 0.14);
-  --radius: 14px;
-  --radius-sm: 9px;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
+@import url("/theme.css");
+
+/* PNGCut static pages — shared brand tokens, standalone document layout. */
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; }
 a { color: var(--accent-2); }
 .topbar {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
   padding: 14px 22px; border-bottom: 1px solid var(--border-soft);
 }
 .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; color: var(--text); }

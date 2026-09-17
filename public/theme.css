@@ -1,0 +1,73 @@
+/* Dark is the default; light is an explicit preference. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0d12;
+  --bg-elev: #141a20;
+  --bg-panel: #1c252c;
+  --border: #3b4a50;
+  --border-soft: #29353c;
+  --text: #edf2eb;
+  --text-dim: #b2beb5;
+  --text-faint: #98a69d;
+  --accent: #b9d5a9;
+  --accent-2: #a5cbb6;
+  --accent-soft: #24382e;
+  --accent-2-soft: #24382e;
+  --on-accent: #15241b;
+  --dropzone-bg: #10171b;
+  --error: #ff9c96;
+  --warning: #f2cf77;
+  --checker-a: #1c252c;
+  --checker-b: #141a20;
+  --progress-bg: rgba(11, 13, 18, 0.85);
+}
+
+/* PNGCut — warm, editorial, focused. Shared identity for app and static pages. */
+:root[data-theme="light"] {
+  --on-accent: #fffefa;
+  --dropzone-bg: #f7f8f2;
+  --error: #a23532;
+  --warning: #795600;
+  --checker-a: #e4e7de;
+  --checker-b: #f0f2e9;
+  --progress-bg: rgba(247, 245, 239, 0.85);
+  color-scheme: light;
+  --bg: #f7f5ef;
+  --bg-elev: #fffefa;
+  --bg-panel: #eeeee6;
+  --border: #d6d9ce;
+  --border-soft: #e3e5db;
+  --text: #202d27;
+  --text-dim: #59655c;
+  --text-faint: #687267;
+  --accent: #244c3d;
+  --accent-2: #365f45;
+  --accent-soft: #e5ecdf;
+  --accent-2-soft: #e5ecdf;
+  --radius: 18px;
+  --radius-sm: 10px;
+  --shadow: 0 18px 60px rgba(35, 49, 39, 0.09);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+:root {
+  --radius: 18px;
+  --radius-sm: 10px;
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+::selection { background: var(--accent); color: var(--on-accent); }
+.theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; flex-shrink: 0;
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-elev); color: var(--text); cursor: pointer;
+  font-size: 12px; font-weight: 600;
+}
+.theme-toggle:hover { background: var(--bg-panel); border-color: var(--accent); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button, input, select { font-family: inherit; }
+.brand { text-decoration: none; color: var(--text); }
+.brand-mark { width: 36px; height: 36px; flex-shrink: 0; }
+.brand-name { font-weight: 700; letter-spacing: -0.055em; font-size: 23px; }

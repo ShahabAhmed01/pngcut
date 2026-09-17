@@ -4,6 +4,7 @@
  */
 
 import "./style.css";
+import "./studio.css";
 import { Editor } from "./editor.js";
 import * as engine from "./engine.js";
 import { initBulk } from "./bulk.js";

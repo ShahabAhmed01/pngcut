@@ -1,27 +1,6 @@
-/* ============================================================================
-   Free Background Remover — styles
-   Minimal, dark, focused. Accent: warm coral + cyan.
-   ========================================================================== */
+@import url("/theme.css");
 
-:root {
-  --bg: #0b0d12;
-  --bg-elev: #12151d;
-  --bg-panel: #161a24;
-  --border: #242a38;
-  --border-soft: #1d2330;
-  --text: #e8ecf4;
-  --text-dim: #9aa3b5;
-  --text-faint: #6b7384;
-  --accent: #ff5c7a;
-  --accent-2: #16c3d8;
-  --accent-soft: rgba(255, 92, 122, 0.14);
-  --accent-2-soft: rgba(22, 195, 216, 0.14);
-  --radius: 14px;
-  --radius-sm: 9px;
-  --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", Menlo, monospace;
-}
+/* PNGCut application controls and responsive editor layouts. */
 
 * { box-sizing: border-box; }
 
@@ -77,8 +56,7 @@ html, body {
   line-height: 1.12; margin: 0 0 16px; font-weight: 750; letter-spacing: -0.03em;
 }
 .hero-title span {
-  background: linear-gradient(100deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  color: #b9cbb1;
 }
 .hero-sub { color: var(--text-dim); font-size: 16.5px; line-height: 1.6; margin: 0 auto 28px; max-width: 490px; }
 

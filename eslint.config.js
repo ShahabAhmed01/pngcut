@@ -5,7 +5,7 @@ export default [
   { ignores: ["dist/**", "node_modules/**", "coverage/**"] },
   js.configs.recommended,
   {
-    files: ["src/**/*.js", "test/**/*.js", "vite.config.js", "eslint.config.js"],
+    files: ["src/**/*.js", "public/theme.js", "test/**/*.js", "vite.config.js", "eslint.config.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
