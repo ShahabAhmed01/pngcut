@@ -101,6 +101,7 @@ const el = {
   copy: qs("#btn-copy"),
   // toolbar selects
   modelSelect: qs("#model-select"),
+  modelDescription: qs("#model-description"),
   refineSelect: qs("#refine-select"),
   // shortcuts overlay
   shortcutsBtn: qs("#btn-shortcuts"),

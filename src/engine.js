@@ -1,83 +1,19 @@
 /** @module engine — thin wrapper around @imgly/background-removal. */
 
+import { createSessionRegistry } from "./model-sessions.js";
+
 let modulePromise = null;
-let preloadPromise = null;
+const sessions = createSessionRegistry({
+  preload: async (config) => (await loadEngine()).preload(config),
+  segmentForeground: async (blob, config) => (await loadEngine()).segmentForeground(blob, config),
+}, (status, entry) => {
+  activeBackend = entry.device;
+  setModelStatus(status);
+});
 let modelStatus = "idle"; // "idle" | "loading" | "ready" | "error"
 let activeBackend = "unknown"; // "gpu" | "cpu" | "unknown"
 let deviceProbe = null; // memoized WebGPU probe result
 const statusListeners = new Set();
-
-/** Clear the service-worker–cached copies of the model/runtime assets so a
- *  stale or corrupt SW cache can't poison the next load. Best-effort / no-op
- *  when SW isn't controlling the page. Returns a promise that resolves once
- *  the cache entries are gone (so retries never race the deletion). */
-function clearModelCache() {
-  // Dynamically find and delete any versioned model caches created by the SW
-  const purge =
-    typeof caches === "undefined"
-      ? Promise.resolve()
-      : caches
-          .keys()
-          .then((names) =>
-            Promise.all(
-              names
-                .filter((n) => n.startsWith("pngcut-model-") || n.startsWith("imgly-model") || n.startsWith("imgly-resources"))
-                .map((n) => caches.delete(n))
-            )
-          )
-          .catch(() => {});
-  // Nudge the SW to skipWaiting so a fresh install sees the new policy.
-  if (typeof navigator !== "undefined" && navigator.serviceWorker?.controller) {
-    navigator.serviceWorker.controller.postMessage("SKIP_WAITING");
-  }
-  return purge;
-}
-
-/** Retry policy for model loads that fail (network hiccup, SW serving a corrupt
- *  cache, transient WebGPU init failure, …). Backing off here avoids hammering
- *  the CDN / the browser's own connection pool on repeated quick retries.
- */
-const RETRY_POLICY = {
-  maxAttempts: 4,
-  baseDelayMs: 1200,
-  backoff: 2,
-  jitter: 0.25,
-};
-
-/** Bounded exponential backoff with small jitter so concurrent retries don't
- *  all land on the CDN at the exact same instant. */
-function backoffDelay(attempt) {
-  const factor = Math.pow(RETRY_POLICY.backoff, attempt);
-  const base = RETRY_POLICY.baseDelayMs * factor;
-  const jitter = base * RETRY_POLICY.jitter * (Math.random() * 2 - 1);
-  return Math.round(base + jitter);
-}
-
-/** Retry `fn` up to `RETRY_POLICY.maxAttempts` times with exponential backoff.
- *  On each failure we clear the SW model cache first so a stale/corrupt cache
- *  is not re-served on the next attempt. Returns the first successful result or
- *  throws the final error. */
-async function withRetry(fn) {
-  let lastErr = null;
-  for (let attempt = 0; attempt < RETRY_POLICY.maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      console.warn(
-        `Model load attempt ${attempt + 1}/${RETRY_POLICY.maxAttempts} failed.`,
-        err
-      );
-      // Don't sleep after the last attempt — throw immediately.
-      if (attempt + 1 >= RETRY_POLICY.maxAttempts) break;
-      // Await the purge so the next attempt can't re-read the cache we just
-      // decided was bad (previously fire-and-forget, which raced the retry).
-      await clearModelCache();
-      await new Promise((r) => setTimeout(r, backoffDelay(attempt)));
-    }
-  }
-  throw lastErr;
-}
 
 // Every call shares this canonical output shape so all code paths (image
 // editor, video frames, bulk jobs) produce the same memoisation key.
@@ -96,7 +32,7 @@ export const MODEL_TIERS = {
 };
 
 export function isModelTier(value) {
-  return typeof value === "string" && value in MODEL_TIERS;
+  return typeof value === "string" && Object.hasOwn(MODEL_TIERS, value);
 }
 
 /** Synchronous hint: used only as an initial guess before `probeDevice`. */
@@ -172,121 +108,25 @@ function setModelStatus(status) {
   statusListeners.forEach((cb) => cb(status));
 }
 
-/**
- * Build a config that always has the exact same property shape (including JSON
- * key order). @imgly's `init` is memoised with `JSON.stringify(config)` as the
- * cache key and keeps its sessions alive for the whole tab lifetime — so
- * identical configs reuse the same ONNX session and the model is downloaded and
- * initialized exactly once per tab. (Function values are dropped by
- * JSON.stringify, so `progress` / `onProgress` never affect the cache key.)
- */
-function makeConfig(model, device, output, onProgress) {
-  return {
-    model: isModelTier(model) ? model : "medium",
-    device: device === "gpu" ? "gpu" : "cpu",
-    output: output || CANONICAL_OUTPUT,
-    progress: typeof onProgress === "function" ? onProgress : undefined,
-  };
-}
-
-/**
- * Load the model + create the inference session now, in the background.
- *
- * Single-flight: calling it again while loading returns the same promise, and
- * once ready the session stays resident in memory for the whole tab.
- *
- * Retries: if the load fails (network hiccup, SW serving a stale/corrupt model
- * cache, transient WebGPU init failure, …) we retry up to
- * `RETRY_POLICY.maxAttempts` times with exponential backoff. Each retry clears
- * the service-worker model cache first so a stale cache isn't re-served.
- *
- * In-flight persistence: the (possibly retrying) promise is kept as
- * `preloadPromise` while it is still settling, so concurrent calls that arrive
- * during a retry see the same promise instead of starting a brand-new load.
- * Once the promise settles to an *error* we clear it so the next call starts
- * fresh.
- */
+/** Each model/backend pair retains its own loading promise and session. */
 export function preload(options = {}) {
-  const model = isModelTier(options.model) ? options.model : defaultModel(options.device);
   const device = options.device || defaultDevice();
-  if (preloadPromise) return preloadPromise;
-
-  setModelStatus("loading");
-  preloadPromise = (async () => {
-    const engine = await loadEngine();
-    try {
-      await withRetry(() => engine.preload(makeConfig(model, device)));
-      activeBackend = device;
-    } catch (err) {
-      // A WebGPU probe can succeed while the actual GPU session creation
-      // fails (driver, shader-compile or EP-init issues). Before giving up,
-      // fall back to one full CPU load so a broken GPU doesn't strand the
-      // user — previously we retried the same GPU config 4× and stopped.
-      if (device !== "gpu") throw err;
-      console.warn("GPU model load failed; falling back to CPU.", err);
-      await withRetry(() => engine.preload(makeConfig(model, "cpu")));
-      activeBackend = "cpu";
-    }
-    setModelStatus("ready");
-    return true;
-  })().catch((err) => {
-    preloadPromise = null;
-    setModelStatus("error");
-    throw err;
-  });
-  return preloadPromise;
+  const model = isModelTier(options.model) ? options.model : defaultModel(device);
+  return sessions.preload(model, device, { ...CANONICAL_OUTPUT, ...options.output });
 }
 
-/**
- * Force a fresh model load on next use. Clears any in-flight promise and the
- * service-worker–cached model assets so the next `preload`/`segmentForeground`
- * call starts from a clean state. Primarily intended as a user-facing "retry"
- * path after a persistent failure.
- */
+/** Failed entries are removed automatically; never purge healthy models. */
 export function resetModel() {
-  preloadPromise = null;
-  modulePromise = null;
-  clearModelCache();
   setModelStatus("idle");
 }
 
-/**
- * Produce an alpha mask for `blob` (white = keep foreground).
- * @param {Blob} blob
- * @param {{model?:string, device?:string, output?:object, onProgress?:function}} options
- */
+export function getModelLoadStatus(model, device = defaultDevice()) {
+  return sessions.status(model, device, CANONICAL_OUTPUT);
+}
+
 export async function segmentForeground(blob, options = {}) {
-  const resolvedDevice = await probeDevice();
-  const engine = await loadEngine();
-  const model = isModelTier(options.model) ? options.model : defaultModel(resolvedDevice);
-  let device = options.device === "gpu" || options.device === "cpu" ? options.device : resolvedDevice;
-
-  // Ensure the canonical session is loaded before we try to run inference on
-  // it. If a load is already in flight (preloadPromise) we join it; otherwise
-  // we start one ourselves and *wait* for it before calling segmentForeground —
-  // the old code called preload() and then immediately ran inference, which
-  // races on a cold start and produces the "model failed to load" error that
-  // also fails to recover on retry.
-  if (modelStatus !== "ready") {
-    await preload({ model, device });
-    // If preload had to fall back (e.g. GPU → CPU because the GPU session
-    // failed to initialize), run inference on the backend that actually
-    // loaded instead of re-attempting the failed one.
-    if (device === "gpu" && activeBackend === "cpu") device = "cpu";
-  }
-  activeBackend = device;
-  const config = makeConfig(model, device, options.output, options.onProgress);
-
-  try {
-    return await engine.segmentForeground(blob, config);
-  } catch (err) {
-    // WebGPU can fail mid-inference even after a successful probe; retry on CPU
-    // once before giving up, so a GPU hiccup doesn't strand the user.
-    if (device === "gpu") {
-      console.warn("GPU inference failed; retrying on CPU.", err);
-      activeBackend = "cpu";
-      return engine.segmentForeground(blob, makeConfig(model, "cpu", options.output, options.onProgress));
-    }
-    throw err;
-  }
+  const device = options.device || await probeDevice();
+  const model = isModelTier(options.model) ? options.model : defaultModel(device);
+  return sessions.segment(blob, model, device,
+    { ...CANONICAL_OUTPUT, ...options.output }, options.onProgress);
 }

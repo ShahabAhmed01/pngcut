@@ -32,8 +32,10 @@ the precise wording.
 - **Edge refinement** — a deterministic mask post-process (speckle removal,
   edge-aware smoothing, halo-crushing contrast, optional crisp threshold)
   cleans the raw model cutout before you edit: *Auto / Crisp / Soft / Off*
-- **Device-adaptive AI model** — Best (full-precision ISNet), Balanced (FP16,
-  default) or Fast (quantized), pre-picked by GPU/CPU capability and rememberable
+- **Device-adaptive AI model** — Best (full-precision ISNet), Balanced (FP16)
+  or Fast (quantized): Auto pre-picks by GPU/CPU capability, each option shows a
+  description and load state, and loaded models stay warm in the tab so you can
+  switch between them without re-downloading. Nothing downloads until needed.
 - **Erase** and **Restore** brush for fine edge refinement (live preview while
   painting, even on multi-megapixel images)
 - Undo / redo (memory-bounded)

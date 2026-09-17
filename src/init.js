@@ -2,6 +2,7 @@
 import { inject } from "@vercel/analytics";
 import { injectSpeedInsights } from "@vercel/speed-insights";
 import * as engine from "./engine.js";
+import { bindModelInfo } from "./model-info.js";
 
 export async function initApp({ state, el, buildGradientSwatches, bindUpload, bindControls, bindViewport, bindShortcuts, applyPrefs, addAvifOption, registerServiceWorker, showStatus, showToast }) {
   inject();
@@ -67,18 +68,8 @@ export async function initApp({ state, el, buildGradientSwatches, bindUpload, bi
     });
   });
 
-  // Prefetch the model only in the background
-  const mayPrefetch = () => {
-    const saveData = navigator.connection && navigator.connection.saveData;
-    const mem = navigator.deviceMemory || 8;
-    return !saveData && mem >= 4;
-  };
-  if (mayPrefetch()) {
-    const warmUp = () => engine.preload({ model: state.model || engine.defaultModel(state.device), device: state.device });
-    if (typeof requestIdleCallback === "function") {
-      requestIdleCallback(warmUp, { timeout: 4000 });
-    } else {
-      setTimeout(warmUp, 800);
-    }
-  }
+  // On-demand models: nothing downloads until the user picks a model or
+  // processes an image. Descriptions and per-model readiness stay in sync via
+  // engine status events — no polling, no startup fetch.
+  bindModelInfo({ state, select: el.modelSelect, description: el.modelDescription, reset: el.reset });
 }

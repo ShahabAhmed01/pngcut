@@ -1,6 +1,5 @@
 /** Preferences persistence for toolbar choices. */
 import { REFINE_PRESETS } from "./refine.js";
-import * as engine from "./engine.js";
 
 const PREFS_KEY = "pngcut.prefs.v1";
 
@@ -12,9 +11,10 @@ export function loadPrefs() {
   }
 }
 
-export function savePrefs(model, refine) {
+export function savePrefs(_model, refine) {
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ model, refine }));
+    // Model choice remains in application state for this tab only.
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ refine }));
   } catch {
     /* storage unavailable — preferences are best-effort */
   }
@@ -22,10 +22,9 @@ export function savePrefs(model, refine) {
 
 export function applyPrefs(state, el) {
   const prefs = loadPrefs();
-  if (engine.isModelTier(prefs.model)) {
-    state.model = prefs.model;
-    if (el.modelSelect) el.modelSelect.value = prefs.model;
-  }
+  // Ignore legacy persisted model choices: each page session starts in Auto.
+  state.model = null;
+  if (el.modelSelect) el.modelSelect.value = "";
   if (prefs.refine && prefs.refine in REFINE_PRESETS) {
     state.refine = prefs.refine;
     if (el.refineSelect) el.refineSelect.value = prefs.refine;

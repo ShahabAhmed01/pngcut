@@ -31,7 +31,7 @@
 
     <h2>What PNGCut runs today</h2>
     <p><strong>ISNet</strong> — the general-use variant of <strong>IS-Net</strong>, from <em>Highly Accurate Dichotomous Image Segmentation</em> (DIS, ECCV 2022). It runs through <a href="https://github.com/imgly/background-removal-js" rel="noopener">@imgly/background-removal</a> on <strong>ONNX Runtime Web</strong>: WebGPU when your browser exposes an adapter, multi-threaded WASM otherwise.</p>
-    <p>Three weight tiers ship in the toolbar. They are the same architecture at different precisions, so the quality difference is subtle — the real trade-off is download size and speed.</p>
+    <p>Three weight tiers ship in the toolbar. They are the same architecture at different precisions, so the quality difference is subtle — the real trade-off is download size and speed. Each tier downloads on first use and stays loaded in the tab, so switching between two models does not re-download them; a fresh tab starts in Auto.</p>
 
     <div class="table-wrap">
       <table>
