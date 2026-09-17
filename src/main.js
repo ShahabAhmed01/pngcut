@@ -42,6 +42,7 @@ const state = {
   quality: QUALITY_DEFAULTS.value / 100,
   transparent: true,
   originalName: "image",
+  originalBlob: null, // retained for model-tier reprocessing
   processing: false,
   jobId: 0, // incremented per operation; guards against stale async results
 };
@@ -52,7 +53,6 @@ function resolveModel() {
 }
 
 const qs = (sel) => document.querySelector(sel);
-const qsa = (sel) => Array.from(document.querySelectorAll(sel));
 
 const el = {
   dropzone: qs("#dropzone"),
@@ -110,7 +110,6 @@ const el = {
   fileInfo: qs("#file-info"),
   // footer/status
   statusHint: qs("#status-hint"),
-  sampleButtons: qsa("[data-sample]"),
   zoomIn: qs("#btn-zoom-in"),
   zoomOut: qs("#btn-zoom-out"),
   zoomFit: qs("#btn-fit"),
@@ -186,6 +185,7 @@ const controls = createControlsHandler({
   setTool: tools.setTool,
   savePrefs: (model, refine) => savePrefs(model, refine),
   requestRender,
+  processImage,
 });
 const { bindControls } = controls;
 
@@ -202,29 +202,33 @@ const { bindShortcuts } = shortcuts;
 
 // --- Processing ---
 
-async function processImage(blob, name) {
-  if (state.processing) return;
+async function processImage(blob, name, { preserveResult = false } = {}) {
+  if (state.processing) return false;
   state.processing = true;
-  state.originalName = name;
   const jobId = ++state.jobId;
+  const model = resolveModel();
+  const label = engine.MODEL_TIERS[model].label;
 
   try {
-    const img = await loadImage(blob);
-    if (jobId !== state.jobId) return;
-    const { width, height } = img;
-    state.editor.setSource(toCanvasMax(img, IMAGE_POLICY.maxDimension));
-    showEditor();
-    requestAnimationFrame(() => state.editor.fit());
-
-    el.fileInfo.textContent = `${width} × ${height}px`;
+    if (!preserveResult) {
+      const img = await loadImage(blob);
+      if (jobId !== state.jobId) return false;
+      const { width, height } = img;
+      state.editor.setSource(toCanvasMax(img, IMAGE_POLICY.maxDimension));
+      state.originalBlob = blob;
+      state.originalName = name;
+      showEditor();
+      requestAnimationFrame(() => state.editor.fit());
+      el.fileInfo.textContent = `${width} × ${height}px`;
+    }
 
     showProgress(true);
-    updateProgress(2, `Preparing… (${formatBytes(blob.size)})`);
+    updateProgress(2, `Preparing ${label} model… (${formatBytes(blob.size)})`);
 
     let modelTotal = 0;
 
     const maskBlob = await engine.segmentForeground(blob, {
-      model: resolveModel(),
+      model,
       device: state.device,
       onProgress: (key, current, total) => {
         if (jobId !== state.jobId) return;
@@ -246,20 +250,21 @@ async function processImage(blob, name) {
     if (jobId !== state.jobId) return;
 
     updateProgress(99, "Applying mask…");
-    state.editor.setRefine(state.refine);
-    await state.editor.setMaskFromBlob(maskBlob);
+    await state.editor.setMaskFromBlob(maskBlob, state.refine);
     if (jobId !== state.jobId) return;
     updateProgress(100, "Done");
     setStatus("Ready. Use the tools on the left to refine, then download.");
     await new Promise((r) => setTimeout(r, 250));
     setTool(getActiveTool() || "erase");
+    return true;
   } catch (err) {
     if (jobId !== state.jobId) return;
     console.error(err);
     const code = classifyError(err);
     const info = describeError(code);
-    showToast(`${info.title} — ${info.body}`);
-    setStatus("Choose another image or try again.");
+    showToast(`${label} model: ${info.title} — ${info.body}`);
+    setStatus(preserveResult ? "Model change failed. Your previous result is unchanged." : "Choose another image or try again.");
+    return false;
   } finally {
     if (jobId === state.jobId) {
       showProgress(false);

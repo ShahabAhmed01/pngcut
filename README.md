@@ -47,7 +47,6 @@ the precise wording.
   the clipboard** (`Ctrl+P`)
 - **Installable PWA** — add to home screen; after the first visit the app and
   AI model are cached, so background removal keeps working **offline**
-- Sample images to try instantly
 - **Settings reset** — one-click restore all toolbar settings to defaults
 - **Persistent preferences** — model tier and refinement preset remembered across sessions
 - **Keyboard shortcuts**: `?` lists them all — `B` erase, `R` restore, `C` compare,
@@ -155,7 +154,7 @@ src/
   bulk.js           bulk queue + single-ZIP download
   video.js          video analyze + render
   main.js           app controller (thin, delegates to modules)
-  upload.js         file upload handling (dropzone, paste, pickers, samples)
+  upload.js         file upload handling (dropzone, paste, pickers)
   export.js         encode/download/copy result
   views.js          view switching (hero/editor/bulk/video)
   tools.js          tool selection (erase/restore/compare/bg)
@@ -175,7 +174,6 @@ scripts/
   apply-patches.mjs               postinstall/prebuild dependency patch (see below)
   patches/                        the eval-free inference bundle implementation
   gen-icons.py                    regenerates the PWA icons
-  gen-samples.py                  regenerates the bundled sample images
 ```
 
 ## Stack

@@ -1,8 +1,39 @@
 /** Control binding — buttons, sliders, selects. */
 import * as engine from "./engine.js";
+
 import { ZOOM_DEFAULTS } from "./constants.js";
 
-export function createControlsHandler({ state, el, showToast, setTool, savePrefs, requestRender }) {
+export function createControlsHandler({ state, el, showToast, setTool, savePrefs, requestRender, processImage }) {
+  async function changeModel(value) {
+    const previous = state.model;
+    const next = engine.isModelTier(value) ? value : null;
+    const restore = () => { el.modelSelect.value = previous || ""; };
+    if (state.processing || state.editor.isPainting()) {
+      restore();
+      showToast("Wait for the current operation to finish before changing models.");
+      return;
+    }
+    if (next === previous) return;
+    if (state.originalBlob && (state.editor.canUndo() || state.editor.canRedo()) &&
+        !window.confirm("Changing models replaces the mask and resets brush edits. Continue?")) {
+      restore();
+      return;
+    }
+    state.model = next;
+    const tier = next || engine.defaultModel(state.device);
+    const meta = engine.MODEL_TIERS[tier];
+    if (state.originalBlob) {
+      const ok = await processImage(state.originalBlob, state.originalName, { preserveResult: true });
+      if (!ok) {
+        state.model = previous;
+        restore();
+        return;
+      }
+    }
+    savePrefs(state.model, state.refine);
+    showToast(`Model: ${next ? meta.label : `Auto (${meta.label})`} — ${meta.hint}`);
+  }
+
   function bindControls() {
     el.newImage.addEventListener("click", () => {
       el.fileInput.value = "";
@@ -37,18 +68,7 @@ export function createControlsHandler({ state, el, showToast, setTool, savePrefs
 
     // Model quality tier (persisted; null = resolve on-device)
     if (el.modelSelect) {
-      el.modelSelect.addEventListener("change", () => {
-        const v = el.modelSelect.value;
-        state.model = engine.isModelTier(v) ? v : null;
-        savePrefs(state.model, state.refine);
-        const tier = state.model || engine.defaultModel(state.device);
-        const meta = engine.MODEL_TIERS[tier];
-        showToast(
-          state.model
-            ? `Model: ${meta.label} — ${meta.hint}`
-            : `Model: Auto (${meta.label}) — ${meta.hint}`
-        );
-      });
+      el.modelSelect.addEventListener("change", () => changeModel(el.modelSelect.value));
     }
 
     // Edge refinement preset (persisted; re-derives the mask from raw output)

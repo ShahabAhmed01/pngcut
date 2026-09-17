@@ -79,14 +79,6 @@ kbd {
   border-radius: 5px; padding: 1px 6px;
 }
 
-.try-samples { color: var(--text-dim); font-size: 14px; margin: 22px 0 30px; }
-.sample-btn {
-  background: transparent; border: 1px solid var(--border); color: var(--text);
-  padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 13px;
-  margin: 0 2px; transition: all .15s ease;
-  min-height: 44px; min-width: 44px;
-}
-.sample-btn:hover { border-color: var(--accent-2); color: var(--accent-2); }
 
 .features {
   list-style: none; padding: 0; margin: 0;
@@ -515,7 +507,7 @@ input[type="color"]::-webkit-color-swatch { border-radius: 7px; border: 1px soli
 }
 a:focus-visible { border-radius: 4px; }
 .ghost-btn:focus-visible, .tool-btn:focus-visible, .pick-btn:focus-visible,
-.sample-btn:focus-visible, .bg-option:focus-visible, .swatch:focus-visible,
+.bg-option:focus-visible, .swatch:focus-visible,
 .download-btn:focus-visible, .new-image-btn:focus-visible {
   outline: 2px solid var(--accent-2);
   outline-offset: 2px;
@@ -574,7 +566,6 @@ a:focus-visible { border-radius: 4px; }
   .primary-upload { max-width: 100%; }
   .pick-actions { gap: 8px; }
   .pick-btn { padding: 10px 14px; font-size: 13px; flex: 1 1 auto; justify-content: center; }
-  .try-samples { font-size: 13px; }
   .features { gap: 8px 16px; }
   .features li { font-size: 12.5px; }
   .bulk-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 4px 12px 30px; }
@@ -606,8 +597,6 @@ a:focus-visible { border-radius: 4px; }
   .dropzone-types { font-size: 11px; }
   .pick-actions { flex-direction: column; gap: 6px; }
   .pick-btn { width: 100%; }
-  .try-samples { font-size: 12px; line-height: 1.8; }
-  .sample-btn { padding: 7px 12px; font-size: 12px; }
   .features { flex-direction: column; align-items: center; gap: 6px; }
   .features li { font-size: 12px; }
   .how { padding: 30px 12px 30px; }

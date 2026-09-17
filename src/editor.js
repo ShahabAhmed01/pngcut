@@ -112,7 +112,7 @@ export class Editor {
    * Replace the raw mask from a segmentation result (white=keep), then apply
    * the active refinement preset to produce the editable mask.
    */
-  async setMaskFromBlob(blob) {
+  async setMaskFromBlob(blob, preset = this.refinePreset) {
     const img = await loadImage(blob);
     const w = this.width();
     const h = this.height();
@@ -125,8 +125,17 @@ export class Editor {
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(img, 0, 0, w, h);
     ctx.globalCompositeOperation = "source-over";
+    // Decode and refine before committing; failures must preserve edits/history.
+    const refinePreset = preset in REFINE_PRESETS ? preset : "auto";
+    const mask = refineMaskCanvas(raw, refinePreset);
     this.rawMaskCanvas = raw;
-    this._applyRefine();
+    this.maskCanvas = mask;
+    this.refinePreset = refinePreset;
+    this._undo = [];
+    this._redo = [];
+    this._invalidateFeather();
+    this._invalidateFg();
+    this._emit();
   }
 
   /** Re-derive the editable mask from the raw model output (resets history). */

@@ -25,10 +25,6 @@ const PRECACHE_URLS = [
   "/privacy.html",
   "/models.html",
   "/404.html",
-  // samples are tiny (~35 KB each) — precached so "Try a sample" works offline
-  "/samples/portrait.jpg",
-  "/samples/product.jpg",
-  "/samples/animal.jpg",
 ];
 
 self.addEventListener("install", (event) => {
@@ -133,5 +129,5 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 4) Everything else (analytics, samples) — plain network passthrough.
+  // 4) Everything else (including analytics) — plain network passthrough.
 });

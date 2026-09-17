@@ -22,8 +22,6 @@
 .primary-upload { min-height: 50px; }
 .pick-actions { gap: 6px; }
 .pick-btn { padding: 10px 12px; background: var(--bg-elev); font-size: 12px; }
-.try-samples { margin: 20px 0 0; font-size: 12px; }
-.sample-btn { font-size: 12px; padding: 6px 10px; }
 .features { grid-column: 1 / -1; padding-top: 28px; border-top: 1px solid var(--border); gap: 16px 30px; }
 .features li { font-size: 12px; }
 .how { padding: 64px 24px; }

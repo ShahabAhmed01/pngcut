@@ -1,8 +1,8 @@
-/** File upload handling — dropzone, paste, file pickers, sample images. */
+/** File upload handling — dropzone, paste, file pickers. */
 import { validateImageFile, isSvgFile, looksLikeVideo } from "./validate.js";
 
 export function createUploadHandler({ el, showToast, showView, processImage, bulkFlow, videoFlow }) {
-  const { fileInput, bulkInput, folderInput, videoInput, dropzone, sampleButtons } = el;
+  const { fileInput, bulkInput, folderInput, videoInput, dropzone } = el;
 
   function acceptFile(file) {
     if (!file) return;
@@ -118,17 +118,6 @@ export function createUploadHandler({ el, showToast, showView, processImage, bul
       }
     });
 
-    sampleButtons.forEach((btn) =>
-      btn.addEventListener("click", async () => {
-        try {
-          const res = await fetch(btn.dataset.sample);
-          const blob = await res.blob();
-          processImage(blob, btn.dataset.sample.split("/").pop());
-        } catch {
-          showToast("Couldn't load sample image.");
-        }
-      })
-    );
   }
 
   return { acceptFile, acceptFiles, bindUpload };
