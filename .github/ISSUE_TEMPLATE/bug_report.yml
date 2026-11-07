@@ -1,0 +1,80 @@
+name: Bug Report
+description: Report a bug in PNGCut
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please describe the issue clearly. Do not paste private images, videos, or credentials here.
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include any error text from the app or browser console.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Reproduction steps
+      description: Steps to reproduce the issue (1, 2, 3…).
+      placeholder: |
+        1. Open https://pngcut.vercel.app/
+        2. Upload a ...
+        3. Click ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: feature-area
+    attributes:
+      label: Feature area
+      options:
+        - Image editor
+        - Bulk removal
+        - Video
+        - Model loading / warm-up
+        - Export / download
+        - Service worker / offline
+        - Other
+      default: "0"
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      description: e.g. Chrome 120 on macOS, Firefox on Android
+    validations:
+      required: true
+
+  - type: input
+    id: file-type
+    attributes:
+      label: File type and size (if relevant)
+      description: e.g. 6 MB PNG, 1080p MP4. You do not need to share the file itself.
+
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: Console errors (redacted)
+      description: Any relevant errors from the browser console. Redact any personal data first.
+      render: shell
+
+  - type: checkboxes
+    id: privacy-confirm
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: I have not attached or pasted any private media, credentials, or personal data in this report.

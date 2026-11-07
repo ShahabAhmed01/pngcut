@@ -1,0 +1,39 @@
+version: 2
+updates:
+  # Keep npm dependencies current with conservative, non-breaking updates.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "Asia/Karachi"
+    open-pull-requests-limit: 5
+    groups:
+      "runtime-dependencies":
+        patterns:
+          - "@imgly/*"
+          - "onnxruntime-web"
+        # Runtime updates need human review (AGPL dependency, model behavior).
+        update-types: ["minor", "patch"]
+      "dev-dependencies":
+        patterns:
+          - "vite"
+          - "vitest"
+          - "eslint"
+          - "*"
+        update-types: ["minor", "patch"]
+    ignore:
+      # @imgly/background-removal is pinned to 1.7.0 because newer versions are a
+      # breaking change (and the AGPL dependency's eval-based ndarray code would
+      # need re-patching). Do not auto-update.
+      - dependency-name: "@imgly/background-removal"
+        versions: [">=1.8.0"]
+
+  # Keep GitHub Actions current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "09:00"
+      timezone: "Asia/Karachi"
+    open-pull-requests-limit: 5
