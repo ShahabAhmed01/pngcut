@@ -27,6 +27,22 @@ Only the latest deployed version of the application and the latest commit on the
 4. A public fix is released, and the reporter is credited unless they prefer to
    remain anonymous.
 
+## Known vulnerabilities
+
+The following dependency advisories are tracked but not yet resolved, because
+every available fix requires a breaking dependency change that would regress
+the project:
+
+| Dependency | Severity | Advisory | Status |
+|---|---|---|---|
+| `zod` (transitive, via `@imgly/background-removal`) | High | GHSA-mrhx-c7xc-m3w5 | Accepted risk — fix requires downgrading `@imgly/background-removal` to 1.1.5, which is a breaking change and re-introduces the eval-based `ndarray` code generator PNGCut patches out. Tracked; revisit when the upstream dependency ships a non-breaking fix. |
+
+These are development-time / transitive issues in a client-side app where the
+user controls their own input. They do not expose user-selected media and do
+not weaken the Content-Security-Policy. `npm ci` and CI report them; CI's
+production audit is set to `--audit-level=critical` so these known, documented
+issues do not block the pipeline.
+
 ## Security model assumptions
 
 PNGCut is a client-side application. It processes user-selected media locally in
