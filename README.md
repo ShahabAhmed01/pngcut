@@ -8,6 +8,7 @@ upload-based processing, no server-side processing of your files.
 Live at **https://pngcut.vercel.app/**
 
 [![Deployed on Vercel](https://img.shields.io/badge/deployed%20on-Vercel-000000?logo=vercel)](https://pngcut.vercel.app/)
+[![CI](https://github.com/ShahabAhmed01/pngcut/actions/workflows/ci.yml/badge.svg)](https://github.com/ShahabAhmed01/pngcut/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub](https://img.shields.io/badge/source-GitHub-181717?logo=github)](https://github.com/ShahabAhmed01/pngcut)
 

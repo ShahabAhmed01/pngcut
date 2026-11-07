@@ -1,0 +1,53 @@
+name: Feature Request
+description: Suggest a new feature or improvement for PNGCut
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! PNGCut stays free, private, and client-side — please keep feature ideas within that scope.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem would this feature solve? Is it related to a limitation you hit?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: How would you like PNGCut to behave?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches or tools you've looked at.
+
+  - type: textarea
+    id: expected-benefit
+    attributes:
+      label: Expected benefit
+      description: Who would benefit and how often would they use it?
+
+  - type: dropdown
+    id: feature-area
+    attributes:
+      label: Feature area
+      options:
+        - Image editor
+        - Bulk removal
+        - Video
+        - Model loading / warm-up
+        - Export / download
+        - PWA / offline
+        - Accessibility
+        - Other
+      default: "0"
+    validations:
+      required: true
