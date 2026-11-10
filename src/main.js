@@ -321,6 +321,7 @@ bindBackgroundUI();
 
 // Reset settings button
 el.reset?.addEventListener("click", () => {
+  if (!window.confirm("Reset all settings to defaults?")) return;
   resetPrefs();
   state.model = null;
   state.refine = "auto";
